@@ -187,7 +187,6 @@ class TestGraphNet(unittest.TestCase):
         gn.graph_tuple_eval(gt_copy)
         graphs_evaluated_separately = [gn.graph_eval(g_)  for g_ in old_graphs_list]
         graphs_evaluated_from_graph_tuple = [gt_copy.get_graph(i) for i in range(gt_copy.n_graphs)]
-        #import tensorflow as tf
         flatten_nodes = lambda x : tf.stack([x_.get_state() for x_ in x.nodes])
         flatten_edges = lambda x : tf.stack([x_.edge_tensor for x_ in x.edges])
         for g1,g2 in zip(graphs_evaluated_from_graph_tuple, graphs_evaluated_separately):

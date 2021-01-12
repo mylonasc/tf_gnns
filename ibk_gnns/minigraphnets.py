@@ -4,16 +4,19 @@ import tensorflow as tf
 
 def _copy_any_ds(val):
     """
-    Tensorflow copies (by value) resource variables so there is no copy method for them.
-    Because the datastructures I want need to have clear copy semantics this is a helper
-    function to make sure that when I want to copy I actually copy.
+    Copy semantics for different datatypes accepted.
+    This affects what happens when copying nodes, edges and graphs. 
+    In order to trace gradients, 
+    and defines a consistent interface regardless of the input data-structure.
     """
+    valout = val
     if isinstance(val , np.ndarray) or isinstance(val, list):
         valout = val.copy()
 
     if isinstance(val, tf.Variable) or isinstance(val,tf.Tensor):
-        valout = val# if this is an eager tensor, the assignment copies the tensor.
-    return val
+        valout = tf.identity(val) # TODO: maybe have a flag to override this? Adding more ops does not always make sense.
+    
+    return valout
 
 class Node:
     def __init__(self, node_attr_tensor):
@@ -32,11 +35,6 @@ class Node:
         
     def copy(self):
         return Node(_copy_any_ds(self.node_attr_tensor))
-#        if isinstance(self.node_attr_tensor , np.ndarray):
-#            node_attr_tensor = self.node_attr_tensor.copy()
-#        else:
-#            node_attr_tensor = self.node_attr_tensor # if this is an eager tensor, the assignment copies the tensor.
-#        return Node(node_attr_tensor)
 
     def __add__(self, n):
         return Node(self.node_attr_tensor + n.node_attr_tensor)
@@ -44,8 +42,6 @@ class Node:
     def __sub__(self, n):
         return Node(self.node_attr_tensor  - n.node_attr_tensor)
     
-# My implementation relies on eager mode and all computation happens in place. In reality only nodes
-# and edges have data and the graph class is just for defining the computation between them.
 class Edge:
     def __init__(self, edge_attr_tensor, node_from, node_to):
         self.edge_tensor = edge_attr_tensor
@@ -127,11 +123,7 @@ class Graph:
         # Instantiate the new edges:
         coppied_edge_instances = []
         for e in self.edges:
-            #if isinstance(e.edge_tensor, np.ndarray):
-            #    edge_val = e.edge_tensor.copy()
-            #else:
-            #    edge_val = e.edge_tensor
-            enew = e.copy(nodes_correspondence) #Edge(edge_val, nodes_correspondence[e.node_from], nodes_correspondence[e.node_to])
+            enew = e.copy(nodes_correspondence) 
             coppied_edge_instances.append(enew)
         return Graph(nodes_coppied, coppied_edge_instances)
 
@@ -224,8 +216,6 @@ def make_graph_tuple_from_graph_list(list_of_graphs):
         senders.append(all_nodes.index(e.node_from))
         receivers.append(all_nodes.index(e.node_to))
         
-        #senders.append(e.node_from.find(gin.nodes))
-        #receivers.append(e.node_to.find(gin.nodes))
     
     for n in all_nodes:
         nodes_attr_tensor.append(n.node_attr_tensor)
@@ -289,6 +279,9 @@ class GraphTuple:
         """
         Returns a new graph with the same properties as the original  graph.
         gradients are not traced through this operation.
+
+        It's better if this method is avoided since it's inneficient. 
+        TODO: include the implementation of algs for slicing graphs from graph tuples etc.
         """
         assert(graph_index >=0 )
         if graph_index > self.n_graphs:

@@ -1,6 +1,5 @@
 # Tensorflow message passing networks library
 A library for easy construction of message-passing networks in tensorflow keras.
-Under construction.
 
 # Usage
 ## Basic data-structures

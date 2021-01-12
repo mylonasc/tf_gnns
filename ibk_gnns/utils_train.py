@@ -1,6 +1,6 @@
 import numpy as np
 """
-Some utilities (mostly mirroring keras facilities) with custom behavior for training GNNs.
+Some utilities (mostly mirroring keras facilities)
 These were prefered to the keras analogues to have greater transparency in what is going on and also have full control of conditions/events etc.
 """
 class LossLogger:
