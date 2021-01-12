@@ -253,6 +253,17 @@ class GraphTuple:
         self.n_edges = n_edges     # integers
         self.n_graphs = len(self.n_nodes) # assuming the n_nodes is a list containing the number of nodes for each graph.
 
+        graph_indices_nodes = []
+        for k_,k in enumerate(self.n_nodes):
+            graph_indices_nodes.extend(np.ones(k).astype("int")*k_)
+
+        graph_indices_edges = []
+        for k_,k in enumerate(self.n_edges):
+            graph_indices_edges.extend(np.ones(k).astype("int")*k_)
+
+        self.graph_indices_nodes , self.graph_indices_edges = graph_indices_nodes, graph_indices_edges
+    
+
     def is_equal_by_value(self, other_graph_tuple):
         v1 = self.edges,self.nodes, self.receivers,self.senders, self.n_nodes, self.n_edges, self.n_graphs
         v2 = other_graph_tuple.edges,other_graph_tuple.nodes, other_graph_tuple.receivers,other_graph_tuple.senders, other_graph_tuple.n_nodes, other_graph_tuple.n_edges, other_graph_tuple.n_graphs
@@ -274,14 +285,22 @@ class GraphTuple:
         nedges = _copy_any_ds(self.n_edges)
         ngraphs = _copy_any_ds(self.n_graphs)
         return GraphTuple(n,e,s,r,nnodes,nedges)
+
+
+    def __add__(self, g2):
+        nodes = self.nodes + g2.nodes
+        edges = self.edges + g2.edges
+        s = self.senders
+        r = self.receivers
+        n_nodes = self.n_nodes
+        n_edges = g2.n_edges
+        return GraphTuple(nodes,edges,s,r,n_nodes, n_edges)
+
         
     def get_graph(self, graph_index):
         """
         Returns a new graph with the same properties as the original  graph.
         gradients are not traced through this operation.
-
-        It's better if this method is avoided since it's inneficient. 
-        TODO: include the implementation of algs for slicing graphs from graph tuples etc.
         """
         assert(graph_index >=0 )
         if graph_index > self.n_graphs:
@@ -297,5 +316,6 @@ class GraphTuple:
         nodes = [Node(node_attr[tf.newaxis]) for node_attr in nodes_attrs]
         edges = [Edge(edge_attr_tensor[tf.newaxis], nodes[node_from_idx], nodes[node_to_idx]) for edge_attr_tensor, node_from_idx, node_to_idx in zip(edge_attr, senders,receivers)]
         return Graph(nodes, edges)
+
         
 

@@ -66,7 +66,7 @@ class GraphNet:
                                         can be implemented as a keras layer with a DistributionLambda output. Breaks saving/loading in some cases - untested atm.
 
         """
-        self.graph_independent = graph_independent # should come first.
+        self.is_graph_independent = graph_independent # should come first.
 
         self.edge_function             = edge_function
         self.scan_edge_function() # checking for consistency among some inputs and keeping track of the inputs to the edge function.
@@ -130,7 +130,7 @@ class GraphNet:
                 if ef in f:
                     self.edge_input_dict.update({ef:f})
 
-        if self.graph_independent and any([k in ['global_state','sender_node_state','receiver_node_state'] for k in self.edge_input_dict.keys()]):
+        if self.is_graph_independent and any([k in ['global_state','sender_node_state','receiver_node_state'] for k in self.edge_input_dict.keys()]):
             ef_inputs_str = "\n  " + "\n  ".join(function_input_names) + "\n"
             Exception("Graph independent networks cannot have node sender , node receiver or global states as inputs! The entered edge function has the following inputs: %s"%ef_inputs_str)
 
@@ -163,9 +163,9 @@ class GraphNet:
             node_fn_inputs_str = "\n" + "\n  ".join(node_fn_inputs)
             Exception("Node function inputs don't have ANY of the admissible input names! Admissible input names should contain any of the following:%s\nProvided Node function inputs: %s"%(admis_names_str,node_fn_inputs_str))
 
-        if self.graph_independent and any([k in ['global_state','edge_state_agg'] for k in self.node_input_dict]):
+        if self.is_graph_independent and any([k in ['global_state','edge_state_agg'] for k in self.node_input_dict]):
             node_fn_inputs_str = "\n" + "\n  ".join(node_fn_inputs)
-            Exception("You defined the graphNet as graph independent but provided message-passing related inputs (global_state or edge_state_agg) to the node function! Provided node-function inputs are:%s"(node_fn_inputs_str))
+            Exception("You defined the graphNet as graph independent but provided message-passing related inputs (global_state or edge_state_agg) to the node function! Provided node-function inputs are:%s"%(node_fn_inputs_str))
 
         #if self.graph_independent and 
 
@@ -213,7 +213,7 @@ class GraphNet:
         if self.node_to_prob_function is not None:
             all_weights.extend(self.node_to_prob_function.weights)
         
-        if self.edge_aggregation_function is not None and not isinstance(self.edge_aggregation_function, type(tf.reduce_mean)):
+        if self.edge_aggregation_function is not None and not isinstance(self.edge_aggregation_function, type(tf.reduce_mean)) and not self.is_graph_independent:
             # If the edge aggregation function has weights (it is not a simple aggregation like "mean") accum. the weights
             all_weights.extend(self.edge_aggregation_function.weights)
             
@@ -279,6 +279,7 @@ class GraphNet:
             Exception("Not implemented")
         
         tf_graph_tuple.nodes = self.node_function(node_inputs)
+        return tf_graph_tuple
         # no changes in Graph topology - nothing else to do!
 
     def graph_eval(self, graph, eval_mode = "batched"):
@@ -324,8 +325,8 @@ class GraphNet:
         
         # Simply looping over nodes: Here either the interm. results of aggregation etc are computed or batches are prepared.
         for n in graph.nodes: # this explicit iteration is expensive and unnecessary in most cases. The DM approach (graph tuples) seems better - implement that.
-            if len(n.incoming_edges) is not 0:
-                if not self.graph_independent :
+            if len(n.incoming_edges) != 0:
+                if not self.is_graph_independent :
                     #print([e.edge_tensor for e in n.incoming_edges])
                     edge_vals_ = tf.stack([e.edge_tensor for e in n.incoming_edges])
                     #print(edge_vals)
@@ -336,7 +337,7 @@ class GraphNet:
             else:
                 None #edge_to_node_agg = edge_to_node_agg_dummy
 
-            if self.graph_independent:
+            if self.is_graph_independent:
                 node_attr_tensor = self.node_function([n.node_attr_tensor])
                 n.set_tensor(node_attr_tensor)
             else:
@@ -413,7 +414,7 @@ class GraphNet:
         for n in graph.nodes: # this explicit iteration is expensive and unnecessary in most cases. The DM approach (graph tuples) seems better - do that.
             if NodeInput.EDGE_AGG_STATE.value in self.node_input_dict.keys():
 
-                if len(n.incoming_edges) is not 0:
+                if len(n.incoming_edges) != 0:
                     edge_vals_ = tf.stack([e.edge_tensor for e in n.incoming_edges])
                     edge_to_node_agg = self.edge_aggregation_function(edge_vals_)
                 else: 
