@@ -1,5 +1,7 @@
 import unittest 
 
+# TODO: Write a test on gradient computation.
+
 class TestGraphDatastructures(unittest.TestCase):
 
     def test_construct_nodes_edges_simple_graph_np(self):
