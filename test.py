@@ -54,7 +54,7 @@ class TestGraphDatastructures(unittest.TestCase):
         g2 = Graph([n1,n2,n3,n4],[e12,e21,e23,e34])
         g3 = Graph([n3, n4] , [e34])
 
-        from ibk_gnns import GraphTuple, make_graph_tuple_from_graph_list # the current folder is the module.
+        from tf_gnns import GraphTuple, make_graph_tuple_from_graph_list # the current folder is the module.
         old_graphs_list = [g1.copy(),g2.copy(),g3.copy()]
         graph_tuple = make_graph_tuple_from_graph_list(old_graphs_list)
         new_graphs_list = [graph_tuple.get_graph(k) for k in range(graph_tuple.n_graphs)]
@@ -62,7 +62,7 @@ class TestGraphDatastructures(unittest.TestCase):
 
 class TestGraphNet(unittest.TestCase):
     def test_construct_simple_eval_graphnet(self):
-        from ibk_gnns import GraphNet, make_keras_simple_agg
+        from tf_gnns import GraphNet, make_keras_simple_agg
         edge_input_size = 15
         node_input_size = 10
         node_output_size, edge_output_size = node_input_size, edge_input_size
@@ -86,7 +86,7 @@ class TestGraphNet(unittest.TestCase):
         The "safe" mode is used as reference for the correct results; All modes should give the same output within an error margin (due to finite precission 
         rounding errors and the different comp. graphs.)
         """
-        from ibk_gnns import GraphNet, make_mlp_graphnet_functions
+        from tf_gnns import GraphNet, make_mlp_graphnet_functions
 
         batch_size = 12
         tf.keras.backend.set_floatx("float64")
@@ -175,7 +175,7 @@ class TestGraphNet(unittest.TestCase):
         g2 = Graph([n1,n2,n3,n4],[e12,e21,e23,e34]).copy()
         g3 = Graph([n3, n4] , [e34]).copy()
 
-        from ibk_gnns import GraphTuple, make_graph_tuple_from_graph_list ,GraphNet , make_mlp_graphnet_functions# the current folder is the module.
+        from tf_gnns import GraphTuple, make_graph_tuple_from_graph_list ,GraphNet , make_mlp_graphnet_functions# the current folder is the module.
         old_graphs_list = [g1.copy(),g2.copy(),g3.copy()]
         graph_tuple = make_graph_tuple_from_graph_list(old_graphs_list)
         #new_graphs_list = [graph_tuple.get_graph(k) for k in range(graph_tuple.n_graphs)]
@@ -195,7 +195,7 @@ class TestGraphNet(unittest.TestCase):
 
 if __name__ == "__main__":
 
-    from ibk_gnns import Node, Edge, Graph
+    from tf_gnns import Node, Edge, Graph
     import tensorflow as tf
     import numpy as np
     unittest.main(verbosity = 2)

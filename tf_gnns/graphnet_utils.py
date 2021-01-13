@@ -15,7 +15,7 @@ tfd = tfp.distributions
 import numpy as np
 
 #from minigraphnets import Gr3aph, GraphTuple imported at init?
-from .minigraphnets import Graph
+from .datastructures import Graph
 
 def _instantiate_gamma(t, NParams_ = 1):
     return tfd.Gamma(concentration = t[...,0:NParams_], rate = t[...,NParams_:2*NParams_])

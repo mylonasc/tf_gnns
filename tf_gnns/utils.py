@@ -1,5 +1,5 @@
 import numpy as np
-from .minigraphnets import Node, Edge,Graph 
+from .datastructures import Node, Edge,Graph 
 
 
 
