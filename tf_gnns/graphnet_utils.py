@@ -167,7 +167,6 @@ class GraphNet:
             node_fn_inputs_str = "\n" + "\n  ".join(node_fn_inputs)
             Exception("You defined the graphNet as graph independent but provided message-passing related inputs (global_state or edge_state_agg) to the node function! Provided node-function inputs are:%s"%(node_fn_inputs_str))
 
-        #if self.graph_independent and 
 
 
     def get_graphnet_input_shapes(self):
