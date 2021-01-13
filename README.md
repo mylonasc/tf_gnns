@@ -14,7 +14,7 @@ features while (potentially) having better supervision on what is going on if yo
 More examples to be implemented. The library has been used so far in the following publications:
 
 You may inspect some basic functionality on the following colab notebook:
-[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/mylonasc/blob/main/notebooks/01_tf_gnn_basics.ipynb)
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/mylonasc/tf_gnns/blob/main/notebooks/01_tf_gnn_basics.ipynb)
 
 \[1\][Bayesian graph neural networks for strain-based crack localization](https://arxiv.org/abs/2012.06791) 
 
