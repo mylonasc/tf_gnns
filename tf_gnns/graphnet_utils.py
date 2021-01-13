@@ -213,9 +213,10 @@ class GraphNet:
         if self.node_to_prob_function is not None:
             all_weights.extend(self.node_to_prob_function.weights)
         
-        if self.edge_aggregation_function is not None and not isinstance(self.edge_aggregation_function, type(tf.reduce_mean)) and not self.is_graph_independent:
+        if not self.is_graph_independent:
+            if self.edge_aggregation_function is not None and not isinstance(self.edge_aggregation_function, type(tf.reduce_mean)):
             # If the edge aggregation function has weights (it is not a simple aggregation like "mean") accum. the weights
-            all_weights.extend(self.edge_aggregation_function.weights)
+                all_weights.extend(self.edge_aggregation_function.weights)
             
         return all_weights
     
