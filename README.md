@@ -6,7 +6,7 @@ The `tf_gnns` library has no external dependencies except tensorflow 2.x (there 
 It implements some alternative design constraints from `graph_nets` taking advantage of some facilities keras provides to make complex models easily and without large drops in performance.
 
 
-In `tf_gnns` there are not many restrictions on what may a node function, an edge function and an aggregation function. Moreover, very few sanity checks are 
+In `tf_gnns` there are not many restrictions on what may a node function, an edge function and an aggregation function be. Moreover, very few sanity checks are 
 performed so it is possibly easier to make a mistake if you do not know what you are doing exactly. Nevertheless, it is potentially easier to implement advanced 
 features while (potentially) having better supervision on what is going on if you are familiar with the functional API of `tf.keras` (hence *hackable*).
 
