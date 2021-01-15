@@ -14,10 +14,14 @@ features while (potentially) having better supervision on what is going on if yo
 More examples to be implemented. 
 
 You may inspect some basic functionality on the following colab notebook:
+
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/mylonasc/tf_gnns/blob/main/notebooks/01_tf_gnn_basics.ipynb)
 
-## Publications using `tf_gnns`:
+# Publications using `tf_gnns`
+The library has been used so far in the following publications:
+
 \[1\][Bayesian graph neural networks for strain-based crack localization](https://arxiv.org/abs/2012.06791) 
+
 \[2\][Remaining Useful Life Estimation Under Uncertainty with Causal GraphNets](https://arxiv.org/abs/2011.11740)
 
 
