@@ -1,3 +1,4 @@
+![alt-img](doc/figures/tfgnns_logo2.png)
 # `tf_gnns` - A Hackable GraphNets library
 A library for easy construction of message-passing networks in tensorflow keras.
 It is inspired largely by this [DeepMind paper](https://arxiv.org/abs/1806.01261) where a library was also open-sourced ([original graph_nets library](https://github.com/deepmind/graph_nets))
@@ -9,6 +10,12 @@ It implements some alternative design constraints from `graph_nets` taking advan
 In `tf_gnns` there are not many restrictions on what may a node function, an edge function and an aggregation function be. Moreover, very few sanity checks are 
 performed so it is possibly easier to make a mistake if you do not know what you are doing exactly. Nevertheless, it is potentially easier to implement advanced 
 features while (potentially) having better supervision on what is going on if you are familiar with the functional API of `tf.keras` (hence *hackable*).
+
+## Installing `tf_gnns`
+Install with `pip`:
+```
+pip install tf_gnns
+```
 
 # Examples
 More examples to be implemented. 
