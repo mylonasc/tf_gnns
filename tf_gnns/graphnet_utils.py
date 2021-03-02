@@ -729,13 +729,7 @@ def make_keras_simple_agg(input_size, agg_type):
     y = aggs[0](x,0)
     m_basic = tf.keras.Model(inputs = x, outputs = y,name = 'basic_%s_aggregator'%agg_type)
 
-    x2 = Input(shape = input_size, name = "edge_messages") # for "segment" aggregators this needs also a bunch of indices!
-    x2_inds = Input(shape = (1,), dtype = "int32", name = "receiver_indices") # for the segment indices.
-    x2_ms = Input(shape = (1,), batch_size = 1 ,dtype = "int32",name = "max_segment_idx")
-
-    print(input_size)
-    #y2 = dict_agg[agg_type][1](x2,x2_inds,x2_ms)
-    m_seg = dict_agg[agg_type][1] #tf.keras.Model(inputs = [x2,x2_inds,x2_ms] , outputs = y2,name= 'segm_%s_aggregator'%agg_type)
+    m_seg = dict_agg[agg_type][1] 
     
     return m_basic, m_seg
 
