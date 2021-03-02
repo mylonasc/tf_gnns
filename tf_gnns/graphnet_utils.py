@@ -715,7 +715,7 @@ def make_keras_simple_agg(input_size, agg_type):
     aggregator with segment sums that should be preferred.
 
     parameters:
-       input_size : the size of the expected input - should fail (even later at some point)
+       input_size : the size of the expected input 
        agg_type   : ['mean','sum','min','max']
     """
     dict_agg = {
