@@ -195,6 +195,54 @@ class TestGraphNet(unittest.TestCase):
             self.assertTrue(tf.norm(flatten_nodes(g1)- flatten_nodes(g2))<1e-10)
             self.assertTrue(tf.norm(flatten_edges(g1) - flatten_edges(g2)) < 1e-10)
 
+    def test_graph_tuple_eval_with_global(self):
+        """
+        Test if the evaluation of graph tuples with global variables works.
+        """
+
+
+        ## Constructing a graph tuple:
+
+        batch_size = 1
+        node_input_size = 10
+        edge_input_size = 10
+        global_attr_size  = 5
+        n1 = Node(np.random.randn(batch_size,node_input_size))
+        n2 = Node(np.random.randn(batch_size, node_input_size))
+        n3 = Node(np.random.randn(batch_size, node_input_size))
+        n4 = Node(np.random.randn(batch_size, node_input_size))
+        n5 = Node(np.random.randn(batch_size, node_input_size))
+
+        e12 = Edge(np.random.randn(batch_size, edge_input_size),node_from = n1,node_to = n2)
+        e21 = Edge(np.random.randn(batch_size, edge_input_size),node_from = n2,node_to = n1)
+        e23 = Edge(np.random.randn(batch_size, edge_input_size),node_from = n2,node_to = n3)
+        e34 = Edge(np.random.randn(batch_size, edge_input_size), node_from = n3, node_to = n4)
+        e45 = Edge(np.random.randn(batch_size, edge_input_size), node_from = n4, node_to = n5)
+
+        g1 = Graph([n1,n2],[e12]).copy()
+        g2 = Graph([n1,n2,n3,n4],[e12,e21,e23,e34]).copy()
+        g3 = Graph([n3, n4] , [e34]).copy()
+
+        from tf_gnns import GraphTuple, make_graph_tuple_from_graph_list ,GraphNet , make_mlp_graphnet_functions# the current folder is the module.
+        old_graphs_list = [g1.copy(),g2.copy(),g3.copy()]
+        graph_tuple = make_graph_tuple_from_graph_list(old_graphs_list)
+        global_vars = tf.Variable(np.random.randn(graph_tuple.n_graphs,global_attr_size))
+
+        graph_fcn = make_mlp_graphnet_functions(150, node_input_size = 10, node_output_size = 10,
+                graph_indep=False, use_global_to_edge = True, use_global_to_node = True,global_state_size = global_attr_size)
+        gn = GraphNet(**graph_fcn)
+        gt_copy = graph_tuple.copy()
+        out = gn.graph_tuple_eval(gt_copy, global_vars)
+        print(out)
+
+        #graphs_evaluated_separately = [gn.graph_eval(g_)  for g_ in old_graphs_list]
+        #graphs_evaluated_from_graph_tuple = [gt_copy.get_graph(i) for i in range(gt_copy.n_graphs)]
+        #flatten_nodes = lambda x : tf.stack([x_.get_state() for x_ in x.nodes])
+        #flatten_edges = lambda x : tf.stack([x_.edge_tensor for x_ in x.edges])
+        #for g1,g2 in zip(graphs_evaluated_from_graph_tuple, graphs_evaluated_separately):
+        #    self.assertTrue(tf.norm(flatten_nodes(g1)- flatten_nodes(g2))<1e-10)
+        #    self.assertTrue(tf.norm(flatten_edges(g1) - flatten_edges(g2)) < 1e-10)
+
 if __name__ == "__main__":
 
     from tf_gnns import Node, Edge, Graph

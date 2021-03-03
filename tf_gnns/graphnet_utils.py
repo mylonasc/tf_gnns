@@ -232,7 +232,7 @@ class GraphNet:
     def __call__(self, graph):
         return self.graph_eval(graph)
 
-    def graph_tuple_eval(self, tf_graph_tuple):
+    def graph_tuple_eval(self, tf_graph_tuple, global_state = None):
         # This method parallels what the deepmind library does for faster batched computation. 
         # The `tf_graph_tuple` contains edge, nodes, n_edges, n_nodes, senders (indices), receivers (indices).
         # * the "edges" and "nodes" are already stacked into a tensor
@@ -240,6 +240,11 @@ class GraphNet:
         # * the edge function is applied to edges
         # * the edge function outputs are aggregated according to the "receivers" tensor to yield the messages.
         # 
+        # Global state can also be supplied as an argument (if the edge and/or node functions use it)
+        #
+        # parameters:
+        #  tf_graph_tuple : a GraphTuple object containing nodes, edges and their connectivity for multiple graphs.
+        #  global_state   : a tensor with the "global" variable. It should have tf_graph_tuple.n_graphs as the first dimension.
 
         # if the graph is not graph_indep compute the edge-messages with the aggregator.
         # 1) compute the edge functions
@@ -255,6 +260,12 @@ class GraphNet:
         if EdgeInput.RECEIVER_NODE_STATE.value in self.edge_input_dict.keys():
             v = tf.gather(tf_graph_tuple.nodes, tf_graph_tuple.receivers,axis = 0)
             edge_inputs.update({EdgeInput.RECEIVER_NODE_STATE.value : v })
+
+        if EdgeInput.GLOBAL_STATE.value in self.edge_input_dict.keys():
+            edge_reps = []
+            for k, e in enumerate(tf_graph_tuple.n_edges):
+                edge_reps.extend([k]*e)
+            edge_inputs.update({EdgeInput.GLOBAL_STATE.value : tf.gather(global_state,edge_reps, axis = 0)})
 
         tf_graph_tuple.edges = self.edge_function(edge_inputs)
 
@@ -276,7 +287,11 @@ class GraphNet:
         if NodeInput.NODE_STATE.value in self.node_input_dict.keys():
             node_inputs.update({NodeInput.NODE_STATE.value : tf_graph_tuple.nodes})
         if NodeInput.GLOBAL_STATE.value in self.node_input_dict.keys():
-            Exception("Not implemented")
+            node_reps = []
+            for k, e in enumerate(tf_graph_tuple.n_nodes):
+                node_reps.extend([k]*e)
+            node_inputs.update({NodeInput.GLOBAL_STATE.value : tf.gather(global_state,node_reps)})
+
         
         tf_graph_tuple.nodes = self.node_function(node_inputs)
         return tf_graph_tuple
@@ -440,7 +455,7 @@ class GraphNet:
             edge_agg_messages_concat = tf.concat(edge_agg_messages_batch,axis = 0)
             node_function_inputs.update({NodeInput.EDGE_AGG_STATE.value : edge_agg_messages_concat})
         if NodeInput.GLOBAL_STATE.value in self.node_input_dict.keys():
-            Exception("Globals not implemented yet.")
+            Exception("Global attributes not implemented yet for this evaluation method.")
             node_function_inputs.update({NodeInput.GLOBAL_STATE.value : global_value_concat})
 
         batch_res = self.node_function(node_function_inputs)
@@ -627,13 +642,16 @@ class GraphNet:
                 
 def make_mlp(units, input_tensor_list , output_shape):
     """
-    A default method for making a small MLP:
+    A default method for making a small MLP.
+    Concatenates named inputs provided in a list. The inputs are named even though they are provided in a list.
+    This naming is used from the evaluation method (self.graph_tuple_eval). This is less error prone to trying to 
+    keep a speciffic ordering for the inputs.
+    
     """
     if len(input_tensor_list) > 1:
         edge_function_input = keras.layers.concatenate(input_tensor_list);
     else:
         edge_function_input = input_tensor_list[0] #essentialy a list of a single tensor.
-    #print(units, edge_function_input)
 
     y = Dense(units)(  edge_function_input)
     y=  Dropout(rate = 0.2)(y)
@@ -647,37 +665,46 @@ def make_mlp(units, input_tensor_list , output_shape):
 def make_node_mlp(units,
         edge_state_input_shape = None,
         node_state_input_shape = None, 
+        global_state_input_shape = None, 
         node_emb_size= None,
         use_global_input = False,
         use_edge_state_agg_input = True,
         graph_indep = False):
 
     if use_edge_state_agg_input and graph_indep:
-        Exception("requested a GraphIndep graphnet node function but speciffied use of node input! This is inconsistent.")
+        Exception("Requested a GraphIndep graphnet node function but speciffied use of node input! This is inconsistent.")
 
     node_state_in = Input(shape = node_state_input_shape, name = NodeInput.NODE_STATE.value);
 
     if graph_indep:
         return make_mlp(units, [node_state_in], node_emb_size)
 
-    if use_edge_state_agg_input:
+    if use_edge_state_agg_input and use_global_input == False:
         agg_edge_state_in = Input(shape = edge_state_input_shape, name =  NodeInput.EDGE_AGG_STATE.value);
         return make_mlp(units, [agg_edge_state_in, node_state_in],node_emb_size)
+
+    if use_edge_state_agg_input and use_global_input:
+        agg_edge_state_in = Input(shape = edge_state_input_shape, name =  NodeInput.EDGE_AGG_STATE.value);
+        global_state_in = Input(shape = global_state_input_shape , name = NodeInput.GLOBAL_STATE.value)
+        return make_mlp(units, [agg_edge_state_in, node_state_in, global_state_in],node_emb_size)
+
 
 
 def make_edge_mlp(units,
         edge_state_input_shape = None,
         edge_state_output_shape = None, 
         sender_node_state_output_shape = None,
+        global_state_shape = None,
         receiver_node_state_shape = None,
         edge_output_state_size = None,
         use_edge_state = True,
         use_sender_out_state = True,
         use_receiver_state = True,
+        use_global_state = False, 
         graph_indep = False):
     """
-    When this is a graph independent edge function, the input is different: 
-    The node states from the sender and receiver are not used!
+    When this is a graph-independent edge function, the node states from the sender and receiver are not used.
+    As the make_node_mlp, it uses a list of named keras.Input layers.
     """
     tensor_in_list = []
     if use_edge_state:
@@ -695,12 +722,17 @@ def make_edge_mlp(units,
                 shape = receiver_node_state_shape, name = EdgeInput.RECEIVER_NODE_STATE.value);
         tensor_in_list.append(node_state_receiver_in)
 
+    if use_global_state:
+        global_state_in = Input(
+                shape = global_state_shape, name = EdgeInput.GLOBAL_STATE.value );
+        tensor_in_list.append(global_state_in)
+
     if graph_indep:
         try:
             assert(use_sender_out_state is False)
             assert(use_receiver_out_state is False)
         except:
-            ValueError("The receiver and sender nodes for graph-independent blocks should not be used! It was attempted to create an edge function for a graph-indep. block containing receiver and sender states as inputs.")
+            ValueError("The receiver and sender nodes for graph-independent blocks should not be used as inputs to the edge function! It was attempted to create an edge function for a graph-indep. block containing receiver and sender states as inputs.")
         ## Building the edge MLP:
         tensor_input_list = [edge_state_in]
         return make_mlp(units,tensor_input_list,edge_output_state_size )  
@@ -715,7 +747,7 @@ def make_keras_simple_agg(input_size, agg_type):
     aggregator with segment sums that should be preferred.
 
     parameters:
-       input_size : the size of the expected input 
+       input_size : the size of the expected input (mainly useful to enforce consistency)
        agg_type   : ['mean','sum','min','max']
     """
     dict_agg = {
@@ -776,6 +808,8 @@ def edge_aggregation_function_factory(input_shape, agg_type = 'mean'):
 def make_mlp_graphnet_functions(units,
         node_input_size, node_output_size, 
         edge_input_size = None, edge_output_size = None,
+        use_global_to_edge = False, use_global_to_node = False,
+        global_state_size = None,
         graph_indep = False, message_size = None, aggregation_function = 'mean'):
     """
     Make the 3 functions that define the graph (no Nodes to Global and Edges to Global)
@@ -783,14 +817,21 @@ def make_mlp_graphnet_functions(units,
       It is assumed that all inputs and all outputs are the same shape for nodes and edges.
 
     parameters:
-      node_input_size  : shape of the node state of the incoming graph.
-      node_output_size : shape of the node state of the output graph
+      units              : a size parameter for the networks created.
+      node_input_size    : shape of the node state of the incoming graph.
+      node_output_size   : shape of the node state of the output graph
+      use_global_to_edge : [False] whether to use a global variable for the created edge MLPs. This changes what 
+                           the evaluation functions of the GN expect (now they also expect a global tensor 
+                           provided as a separate input). See also ~tf_gnns.GraphNet.graph_tuple_eval
+      use_global_to_node : [False] whether to use a global variable for the created node MLPs.
+                           See also `~tf_gnns.GraphNet.graph_tuple_eval`
+
       edge_input_size  : (optional) the shape of the edge attributes of the input graph (defaults to node_input_size)
       edge_output_size : (optional) the shape of the edge attributes of the output graph (defaults to node_output_size)
       graph_indep      : default: False - whether message passing happens in this graphNet (if not it is a "graph-independent" GN)
       message_size     : (optional) the size of the passed message - this can be different from the edge-state output size! 
                          What this affects is what goes into the aggregator and to the node-function. Edge state can still be whatever.
-
+                         
 
     """
     node_input = node_input_size
@@ -810,6 +851,8 @@ def make_mlp_graphnet_functions(units,
             "receiver_node_state_shape" : (node_input,)} 
 
     edge_mlp_args.update({"graph_indep" : graph_indep})
+    edge_mlp_args.update({"use_global_state" : use_global_to_edge})
+    edge_mlp_args.update({"global_state_shape" : global_state_size}) 
     edge_mlp = make_edge_mlp(units, **edge_mlp_args)
 
     if not graph_indep:
@@ -823,6 +866,8 @@ def make_mlp_graphnet_functions(units,
             "node_state_input_shape" : (node_input,),
             "node_emb_size" : (node_output_size,)}
     node_mlp_args.update({"graph_indep" : graph_indep})
+    node_mlp_args.update({"global_state_input_shape" : global_state_size})
+    node_mlp_args.update({"use_global_input" : use_global_to_node})
 
     node_mlp = make_node_mlp(units, **node_mlp_args)
     return {"edge_function" : edge_mlp, "node_function": node_mlp, "edge_aggregation_function": agg_fcn} # Can be passed directly  to the GraphNet construction with **kwargs
