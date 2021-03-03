@@ -12,7 +12,7 @@ Nevertheless, it is easier to implement advanced features and having better supe
  with the functional API of `tf.keras` (hence *hackable*). 
 
 The main motivation for this library was the absense of a short implementation of GNNs that was explicitly created to take advantage of keras's functionalities.
-GNN implementations which take advantage of `tensorflow_probability` functionality is to be released in the future (as the one used in \[2\].
+GNN implementations which take advantage of `tensorflow_probability` functionality is to be released in the future (as the one used in \[2\]).
 
 ## Installing `tf_gnns`
 Install with `pip`:
