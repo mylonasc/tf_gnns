@@ -74,7 +74,7 @@ class TestGraphNet(unittest.TestCase):
         node_function = tf.keras.Model(outputs = tf.keras.layers.Dense(node_output_size)(node_input), inputs= node_input)
         edge_function = tf.keras.Model(outputs = tf.keras.layers.Dense(edge_output_size)(edge_input), inputs= edge_input)
         edge_aggregation_function = make_keras_simple_agg(edge_output_size,'mean')
-        graphnet = GraphNet(node_function = node_function, edge_function = edge_function, edge_aggregation_function = edge_aggregation_function, node_to_prob = None)
+        graphnet = GraphNet(node_function = node_function, edge_function = edge_function, edge_aggregation_function = edge_aggregation_function)
         batch_size = 10
         n1 = Node(np.random.randn(batch_size,node_input_size))
         n2 = Node(np.random.randn(batch_size, node_input_size))
@@ -133,16 +133,13 @@ class TestGraphNet(unittest.TestCase):
         self.assertTrue(error_nodes < 1e-10)
         self.assertTrue(error_edges < 1e-10)
 
-    def save_load(self):
-        graph_fcn = make_mlp_graphnet_functions(150, node_node_input_size = 10, node_output_size = 10, graph_indep=False)
-        gn = GraphNet(**graph_fc)
+    def test_save_load(self):
+        from tf_gnns import make_mlp_graphnet_functions, GraphNet
+        graph_fcn = make_mlp_graphnet_functions(150, node_input_size = 10, node_output_size = 10, graph_indep=False)
+        gn = GraphNet(**graph_fcn)
         gn.save("/tmp/test_gn")
         gn_loaded = GraphNet.make_from_path("/tmp/test_gn")
-        
-        self.assertTrue(np.all([np.sum(np.abs(w1 - w2))<1e-10 for w1,w2 in zip(gn.weights(),gn_loaded.weights())]))
-
-
-
+        self.assertTrue(np.all([np.sum(np.abs(w1 - w2))<1e-10 for w1,w2 in zip(gn.weights,gn_loaded.weights)]))
 
 
     def test_graph_tuple_eval(self):

@@ -37,7 +37,7 @@ class NodeInput(Enum):
 
 class GraphNet:
     """
-    Input is a graph and output is a graph.
+    AAA Input is a graph and output is a graph.
     Encapsulates a GraphNet computation iteration.
     
     Supports model loading and saving (for a single GraphNet)
@@ -45,7 +45,7 @@ class GraphNet:
     Should treat the situations where edge functions do not exist more uniformly.
     Also there is no Special treatment for "globals".
     """
-    def __init__(self, edge_function = None, node_function = None, edge_aggregation_function = None, node_to_prob= None, graph_independent = False ):
+    def __init__(self, edge_function = None, node_function = None, edge_aggregation_function = None, graph_independent = False, name = None ):
         """
         A GraphNet class. 
         The constructor expects that edge_function, node_function are Keras models with specially named inputs. The input names 
@@ -62,11 +62,11 @@ class GraphNet:
                                         modes. ("batched" and "safe"). If it contains two aggregation functions, 
                                         the second one is the "unsorted_segment" variant (for faster computation with GraphTuples)
 
-           node_to_prob               : the function that takes the final graph and returns a tensorflow probability distribution.
-                                        can be implemented as a keras layer with a DistributionLambda output. Breaks saving/loading in some cases - untested atm.
+            name                       : a string used for the name_scopes of the GNN.
 
         """
         self.is_graph_independent = graph_independent # should come first.
+        self.name = name
 
         self.edge_function             = edge_function
         self.scan_edge_function() # checking for consistency among some inputs and keeping track of the inputs to the edge function.
@@ -80,7 +80,12 @@ class GraphNet:
 
         self.has_seg_aggregator = False
         if edge_aggregation_function is not None:
-            if len(edge_aggregation_function ) > 1:
+            try:
+                len_ea = len(edge_aggregation_function)
+            except:
+                len_ea = 1
+
+            if len_ea > 1:
                 # Has segment sum version:
                 self.edge_aggregation_function_seg = edge_aggregation_function[1]
                 self.has_seg_aggregator = True
@@ -90,12 +95,12 @@ class GraphNet:
 
             self.scan_edge_to_node_aggregation_function(node_function)
 
-        self.node_to_prob_function = node_to_prob # That's sort of special/application speciffic. Maybe remove in the future.
-        # Needed to treat the case of no edges.
-        # If there are no edges, the aggregated edge state is zero.
+        #self.node_to_prob_function = node_to_prob # That's sort of special/application speciffic. Maybe remove in the future.
         
         if self.edge_function is not None: # a messy hack to regret about later
             self.edge_input_size = self.edge_function.inputs[0].shape[1] # input dimension 1 of edge mlp is the edge state size by convention.
+
+        self.weights = self._weights()
 
     @staticmethod
     def make_from_path(path):
@@ -200,7 +205,7 @@ class GraphNet:
         print_summary_if_keras_model(self.edge_function,'Edge function')
         print_summary_if_keras_model(self.edge_function,'Edge Agg. function')
         
-    def weights(self):
+    def _weights(self):
         """
         returns the weights of all the functions associated with this GN in a vector.
 
@@ -209,26 +214,16 @@ class GraphNet:
 
         """
         all_weights = [ *self.edge_function.weights, *self.node_function.weights]
-        if self.node_to_prob_function is not None:
-            all_weights.extend(self.node_to_prob_function.weights)
+        #if self.node_to_prob_function is not None:
+        #    all_weights.extend(self.node_to_prob_function.weights)
         
         if not self.is_graph_independent:
-            if self.edge_aggregation_function is not None and not isinstance(self.edge_aggregation_function, type(tf.reduce_mean)):
-            # If the edge aggregation function has weights (it is not a simple aggregation like "mean") accum. the weights
+            if (self.edge_aggregation_function is not None and not self.is_graph_independent) and not isinstance(self.edge_aggregation_function, type(tf.reduce_mean)):
+                # If the edge aggregation function has weights (it is not a simple aggregation like "mean") accum., append the weights:
                 all_weights.extend(self.edge_aggregation_function.weights)
             
         return all_weights
-    
-    def observe_nodes(self, graph):
-        probs = [];
-        for n in graph.nodes:
-            probs.append(self.node_to_prob_function(n.node_attr_tensor))
-            
-        return probs
         
-    def observe_node(self, node):
-        self.node_to_prob_function(node)
-
     def __call__(self, graph):
         return self.graph_eval(graph)
 
@@ -244,7 +239,7 @@ class GraphNet:
         #
         # parameters:
         #  tf_graph_tuple : a GraphTuple object containing nodes, edges and their connectivity for multiple graphs.
-        #  global_state   : a tensor with the "global" variable. It should have tf_graph_tuple.n_graphs as the first dimension.
+        #  global_state   : [None] a tensor with the "global" variable. It should have tf_graph_tuple.n_graphs as the first dimension.
 
         # if the graph is not graph_indep compute the edge-messages with the aggregator.
         # 1) compute the edge functions
@@ -362,8 +357,8 @@ class GraphNet:
         return graph
 
     def save(self, path):
-        functions = [self.node_function, self.edge_aggregation_function, self.edge_function, self.node_to_prob_function]
-        path_labels = ["node_function", "edge_aggregation_function", "edge_function", "node_to_prob"]
+        functions = [self.node_function, self.edge_aggregation_function, self.edge_function]
+        path_labels = ["node_function", "edge_aggregation_function", "edge_function"]
         import os
         if not os.path.exists(path):
             os.makedirs(path)
@@ -378,7 +373,7 @@ class GraphNet:
         """
         Returns a list of loaded graph functions.
         """
-        function_rel_paths = ["node_function", "edge_aggregation_function", "edge_function", "node_to_prob"]
+        function_rel_paths = ["node_function", "edge_aggregation_function", "edge_function"]
         functions = {};
 
         if not os.path.exists(path):
@@ -471,8 +466,8 @@ class GraphNet:
         return graph
 
     def save(self, path):
-        functions = [self.node_function, self.edge_aggregation_function, self.edge_function, self.node_to_prob_function]
-        path_labels = ["node_function", "edge_aggregation_function", "edge_function", "node_to_prob"]
+        functions = [self.node_function, self.edge_aggregation_function, self.edge_function ]
+        path_labels = ["node_function", "edge_aggregation_function", "edge_function"]
         import os
         if not os.path.exists(path):
             os.makedirs(path)
@@ -487,7 +482,7 @@ class GraphNet:
         """
         Returns a list of loaded graph functions.
         """
-        function_rel_paths = ["node_function", "edge_aggregation_function", "edge_function", "node_to_prob"]
+        function_rel_paths = ["node_function", "edge_aggregation_function", "edge_function"]
         functions = {};
 
         if not os.path.exists(path):
@@ -509,8 +504,8 @@ class GraphNet:
         return functions
 
     def save(self, path):
-        functions = [self.node_function, self.edge_aggregation_function, self.edge_function, self.node_to_prob_function]
-        path_labels = ["node_function", "edge_aggregation_function", "edge_function", "node_to_prob"]
+        functions = [self.node_function, self.edge_aggregation_function, self.edge_function]
+        path_labels = ["node_function", "edge_aggregation_function", "edge_function"]
         import os
         if not os.path.exists(path):
             os.makedirs(path)
@@ -525,7 +520,7 @@ class GraphNet:
         """
         Returns a list of loaded graph functions.
         """
-        function_rel_paths = ["node_function", "edge_aggregation_function", "edge_function", "node_to_prob"]
+        function_rel_paths = ["node_function", "edge_aggregation_function", "edge_function"]
         functions = {};
 
         if not os.path.exists(path):
@@ -552,8 +547,8 @@ class GraphNet:
         If the model is un-initialized, this is called from a static method (factory method) to make a new object with consistent properties.
 
         """
-        functions = [self.node_function, self.edge_aggregation_function, self.edge_function, self.node_to_prob_function]
-        all_paths = ["node_function", "edge_aggregation_function", "edge_function", "node_to_prob"]
+        functions = [self.node_function, self.edge_aggregation_function, self.edge_function]
+        all_paths = ["node_function", "edge_aggregation_function", "edge_function"]
         path_label_to_function = {z:v for z,v in zip(all_paths,functions)}
         path_labels = os.listdir(path) #
         
@@ -645,20 +640,32 @@ def make_mlp(units, input_tensor_list , output_shape):
     A default method for making a small MLP.
     Concatenates named inputs provided in a list. The inputs are named even though they are provided in a list.
     This naming is used from the evaluation method (self.graph_tuple_eval). This is less error prone to trying to 
-    keep a speciffic ordering for the inputs.
-    
+    keep a specific ordering for the inputs.
     """
     if len(input_tensor_list) > 1:
         edge_function_input = keras.layers.concatenate(input_tensor_list);
     else:
-        edge_function_input = input_tensor_list[0] #essentialy a list of a single tensor.
+        edge_function_input = input_tensor_list[0] #essentially a list of a single tensor.
+    
+    
+    # A workaround to keep track of created weights easily:
+    class DenseMaker:
+        def __init__(self):
+            self.idx_local_layer = 0
+        
+        def make(self,*args, **kwargs):
+            with tf.name_scope("dense") as scope:
+                kwargs['name'] = scope + '_%i'%self.idx_local_layer
+                self.idx_local_layer += 1
+                return Dense(*args, **kwargs)
 
-    y = Dense(units)(  edge_function_input)
+    dense_maker = DenseMaker()
+    y = dense_maker.make(units)(  edge_function_input)
     y=  Dropout(rate = 0.2)(y)
-    y = Dense(units, activation = "relu")(y)
+    y = dense_maker.make(units, activation = "relu")(y)
     y=  Dropout(rate = 0.2)(y)
-    y = Dense(units, activation = "relu")(y)
-    y = Dense(output_shape[0])(y)
+    y = dense_maker.make(units, activation = "relu")(y)
+    y = dense_maker.make(output_shape[0])(y)
     return tf.keras.Model(inputs = input_tensor_list, outputs = y)
 
 
@@ -675,18 +682,19 @@ def make_node_mlp(units,
         Exception("Requested a GraphIndep graphnet node function but speciffied use of node input! This is inconsistent.")
 
     node_state_in = Input(shape = node_state_input_shape, name = NodeInput.NODE_STATE.value);
+    
+    with tf.name_scope("node_fn") as scope:
+        if graph_indep:
+            return make_mlp(units, [node_state_in], node_emb_size)
 
-    if graph_indep:
-        return make_mlp(units, [node_state_in], node_emb_size)
+        if use_edge_state_agg_input and use_global_input == False:
+            agg_edge_state_in = Input(shape = edge_state_input_shape, name =  NodeInput.EDGE_AGG_STATE.value);
+            return make_mlp(units, [agg_edge_state_in, node_state_in],node_emb_size)
 
-    if use_edge_state_agg_input and use_global_input == False:
-        agg_edge_state_in = Input(shape = edge_state_input_shape, name =  NodeInput.EDGE_AGG_STATE.value);
-        return make_mlp(units, [agg_edge_state_in, node_state_in],node_emb_size)
-
-    if use_edge_state_agg_input and use_global_input:
-        agg_edge_state_in = Input(shape = edge_state_input_shape, name =  NodeInput.EDGE_AGG_STATE.value);
-        global_state_in = Input(shape = global_state_input_shape , name = NodeInput.GLOBAL_STATE.value)
-        return make_mlp(units, [agg_edge_state_in, node_state_in, global_state_in],node_emb_size)
+        if use_edge_state_agg_input and use_global_input:
+            agg_edge_state_in = Input(shape = edge_state_input_shape, name =  NodeInput.EDGE_AGG_STATE.value);
+            global_state_in = Input(shape = global_state_input_shape , name = NodeInput.GLOBAL_STATE.value)
+            return make_mlp(units, [agg_edge_state_in, node_state_in, global_state_in],node_emb_size)
 
 
 
@@ -727,18 +735,19 @@ def make_edge_mlp(units,
                 shape = global_state_shape, name = EdgeInput.GLOBAL_STATE.value );
         tensor_in_list.append(global_state_in)
 
-    if graph_indep:
-        try:
-            assert(use_sender_out_state is False)
-            assert(use_receiver_out_state is False)
-        except:
-            ValueError("The receiver and sender nodes for graph-independent blocks should not be used as inputs to the edge function! It was attempted to create an edge function for a graph-indep. block containing receiver and sender states as inputs.")
-        ## Building the edge MLP:
-        tensor_input_list = [edge_state_in]
-        return make_mlp(units,tensor_input_list,edge_output_state_size )  
-    else:
-        ## Building the edge MLP:
-        return make_mlp(units,tensor_in_list,edge_output_state_size )  
+    with tf.name_scope("edge_fn"):
+        if graph_indep:
+            try:
+                assert(use_sender_out_state is False)
+                assert(use_receiver_out_state is False)
+            except:
+                ValueError("The receiver and sender nodes for graph-independent blocks should not be used as inputs to the edge function! It was attempted to create an edge function for a graph-indep. block containing receiver and sender states as inputs.")
+            ## Building the edge MLP:
+            tensor_input_list = [edge_state_in]
+            return make_mlp(units,tensor_input_list,edge_output_state_size )  
+        else:
+            ## Building the edge MLP:
+            return make_mlp(units,tensor_in_list,edge_output_state_size )  
 
 def make_keras_simple_agg(input_size, agg_type):
     """
