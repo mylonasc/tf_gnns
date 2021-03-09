@@ -76,7 +76,7 @@ class GraphNet:
 
 
         if graph_independent and edge_aggregation_function is not None:
-            Exception("On all non-graph independent graphnets an aggregation function should be defined!")
+            Exception("Edge-aggregation functions do not make sense in graph-independent blocks! Check your model creation code for errors.")
 
         self.has_seg_aggregator = False
         if edge_aggregation_function is not None:
@@ -95,9 +95,8 @@ class GraphNet:
 
             self.scan_edge_to_node_aggregation_function(node_function)
 
-        #self.node_to_prob_function = node_to_prob # That's sort of special/application speciffic. Maybe remove in the future.
         
-        if self.edge_function is not None: # a messy hack to regret about later
+        if self.edge_function is not None: 
             self.edge_input_size = self.edge_function.inputs[0].shape[1] # input dimension 1 of edge mlp is the edge state size by convention.
 
         self.weights = self._weights()
@@ -262,6 +261,7 @@ class GraphNet:
                 edge_reps.extend([k]*e)
             edge_inputs.update({EdgeInput.GLOBAL_STATE.value : tf.gather(global_state,edge_reps, axis = 0)})
 
+        
         tf_graph_tuple.edges = self.edge_function(edge_inputs)
 
         # 2) Aggregate the messages (unsorted segment sums etc):
@@ -269,6 +269,7 @@ class GraphNet:
             if NodeInput.EDGE_AGG_STATE.value in self.node_input_dict.keys():
                 max_seq = int(tf.reduce_sum(tf_graph_tuple.n_nodes))
                 messages = self.edge_aggregation_function_seg(tf_graph_tuple.edges, tf_graph_tuple.receivers, max_seq)
+
 
         else:
             Exception("Not Implemented!")
@@ -655,7 +656,7 @@ def make_mlp(units, input_tensor_list , output_shape):
         
         def make(self,*args, **kwargs):
             with tf.name_scope("dense") as scope:
-                kwargs['name'] = scope + '_%i'%self.idx_local_layer
+                kwargs['name'] = scope[:-1] + '_%i'%self.idx_local_layer
                 self.idx_local_layer += 1
                 return Dense(*args, **kwargs)
 
@@ -670,7 +671,7 @@ def make_mlp(units, input_tensor_list , output_shape):
 
 
 def make_node_mlp(units,
-        edge_state_input_shape = None,
+        edge_message_input_shape = None,
         node_state_input_shape = None, 
         global_state_input_shape = None, 
         node_emb_size= None,
@@ -688,11 +689,11 @@ def make_node_mlp(units,
             return make_mlp(units, [node_state_in], node_emb_size)
 
         if use_edge_state_agg_input and use_global_input == False:
-            agg_edge_state_in = Input(shape = edge_state_input_shape, name =  NodeInput.EDGE_AGG_STATE.value);
+            agg_edge_state_in = Input(shape = edge_message_input_shape, name =  NodeInput.EDGE_AGG_STATE.value);
             return make_mlp(units, [agg_edge_state_in, node_state_in],node_emb_size)
 
         if use_edge_state_agg_input and use_global_input:
-            agg_edge_state_in = Input(shape = edge_state_input_shape, name =  NodeInput.EDGE_AGG_STATE.value);
+            agg_edge_state_in = Input(shape = edge_message_input_shape, name =  NodeInput.EDGE_AGG_STATE.value);
             global_state_in = Input(shape = global_state_input_shape , name = NodeInput.GLOBAL_STATE.value)
             return make_mlp(units, [agg_edge_state_in, node_state_in, global_state_in],node_emb_size)
 
@@ -732,7 +733,7 @@ def make_edge_mlp(units,
 
     if use_global_state:
         global_state_in = Input(
-                shape = global_state_shape, name = EdgeInput.GLOBAL_STATE.value );
+                shape = global_state_shape, name = EdgeInput.GLOBAL_STATE.value);
         tensor_in_list.append(global_state_in)
 
     with tf.name_scope("edge_fn"):
@@ -744,10 +745,10 @@ def make_edge_mlp(units,
                 ValueError("The receiver and sender nodes for graph-independent blocks should not be used as inputs to the edge function! It was attempted to create an edge function for a graph-indep. block containing receiver and sender states as inputs.")
             ## Building the edge MLP:
             tensor_input_list = [edge_state_in]
-            return make_mlp(units,tensor_input_list,edge_output_state_size )  
+            return make_mlp(units,tensor_input_list,edge_output_state_size)
         else:
             ## Building the edge MLP:
-            return make_mlp(units,tensor_in_list,edge_output_state_size )  
+            return make_mlp(units,tensor_in_list,edge_output_state_size)
 
 def make_keras_simple_agg(input_size, agg_type):
     """
@@ -871,7 +872,7 @@ def make_mlp_graphnet_functions(units,
         #edge_mlp = None
         agg_fcn = None
 
-    node_mlp_args = {"edge_state_input_shape": (edge_input_size,),
+    node_mlp_args = {"edge_message_input_shape": (message_size,),
             "node_state_input_shape" : (node_input,),
             "node_emb_size" : (node_output_size,)}
     node_mlp_args.update({"graph_indep" : graph_indep})
