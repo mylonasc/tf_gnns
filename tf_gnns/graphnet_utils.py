@@ -643,7 +643,7 @@ class GraphNet:
             e.set_tensor(evalue)
 
                 
-def make_mlp(units, input_tensor_list , output_shape, activation = "relu"):
+def make_mlp(units, input_tensor_list , output_shape, activation = "relu", **kwargs):
     """
     A default method for making a small MLP.
     Concatenates named inputs provided in a list. The inputs are named even though they are provided in a list.
@@ -653,7 +653,11 @@ def make_mlp(units, input_tensor_list , output_shape, activation = "relu"):
     if len(input_tensor_list) > 1:
         edge_function_input = keras.layers.concatenate(input_tensor_list);
     else:
+        assert(isinstance(input_tensor_list,list))
         edge_function_input = input_tensor_list[0] #essentially a list of a single tensor.
+
+    if 'activate_last_layer' in kwargs.keys():
+        act_last_layer = kwargs['activate_last_layer']
     
     
     # A workaround to keep track of created weights easily:
@@ -668,12 +672,20 @@ def make_mlp(units, input_tensor_list , output_shape, activation = "relu"):
                 return Dense(*args, **kwargs)
 
     dense_maker = DenseMaker()
-    y = dense_maker.make(units)(  edge_function_input)
-    y=  Dropout(rate = 0.2)(y)
+    y = dense_maker.make(units, use_bias = False)(  edge_function_input)
+    y=  Dropout(rate = 0.1)(y)
     y = dense_maker.make(units, activation = activation)(y)
-    y=  Dropout(rate = 0.2)(y)
+    y=  Dropout(rate = 0.1)(y)
     y = dense_maker.make(units, activation = activation)(y)
-    y = dense_maker.make(output_shape[0])(y)
+
+    if act_last_layer:
+        y = tf.keras.layers.LayerNormalization()(y)
+        y = dense_maker.make(output_shape[0], activation = activation)(y)
+    else:
+        y = tf.keras.layers.LayerNormalization()(y)
+        y = dense_maker.make(output_shape[0])(y)
+        
+
     return tf.keras.Model(inputs = input_tensor_list, outputs = y)
 
 
@@ -685,31 +697,31 @@ def make_node_mlp(units,
         use_global_input = False,
         use_edge_state_agg_input = True,
         graph_indep = False,
-        activation = "relu"):
+        activation = "relu", **kwargs):
 
     if use_edge_state_agg_input and graph_indep:
         Exception("Requested a GraphIndep graphnet node function but speciffied use of node input! This is inconsistent.")
+
 
     node_state_in = Input(shape = node_state_input_shape, name = NodeInput.NODE_STATE.value);
     
     with tf.name_scope("node_fn") as scope:
         if graph_indep:
-            return make_mlp(units, [node_state_in], node_emb_size, activation = activation)
+            return make_mlp(units, [node_state_in], node_emb_size, activation = activation, **kwargs)
 
         if use_edge_state_agg_input and use_global_input == False:
             agg_edge_state_in = Input(shape = edge_message_input_shape, name =  NodeInput.EDGE_AGG_STATE.value);
-            return make_mlp(units, [agg_edge_state_in, node_state_in],node_emb_size, activation = activation)
+            return make_mlp(units, [agg_edge_state_in, node_state_in],node_emb_size, activation = activation, **kwargs)
 
         if use_edge_state_agg_input and use_global_input:
             agg_edge_state_in = Input(shape = edge_message_input_shape, name =  NodeInput.EDGE_AGG_STATE.value);
             global_state_in = Input(shape = global_state_input_shape , name = NodeInput.GLOBAL_STATE.value)
-            return make_mlp(units, [agg_edge_state_in, node_state_in, global_state_in],node_emb_size, activation = activation)
+            return make_mlp(units, [agg_edge_state_in, node_state_in, global_state_in],node_emb_size, activation = activation, **kwargs)
 
 
 
 def make_edge_mlp(units,
         edge_state_input_shape = None,
-        edge_state_output_shape = None, 
         sender_node_state_output_shape = None,
         global_state_shape = None,
         receiver_node_state_shape = None,
@@ -719,7 +731,7 @@ def make_edge_mlp(units,
         use_receiver_state = True,
         use_global_state = False, 
         graph_indep = False,
-        activation = "relu"):
+        activation = "relu",**kwargs):
     """
     When this is a graph-independent edge function, the node states from the sender and receiver are not used.
     As the make_node_mlp, it uses a list of named keras.Input layers.
@@ -754,10 +766,10 @@ def make_edge_mlp(units,
                 ValueError("The receiver and sender nodes for graph-independent blocks should not be used as inputs to the edge function! It was attempted to create an edge function for a graph-indep. block containing receiver and sender states as inputs.")
             ## Building the edge MLP:
             tensor_input_list = [edge_state_in]
-            return make_mlp(units,tensor_input_list,edge_output_state_size,activation = activation)
+            return make_mlp(units,tensor_input_list,edge_output_state_size,activation = activation, **kwargs)
         else:
             ## Building the edge MLP:
-            return make_mlp(units,tensor_in_list,edge_output_state_size, activation = activation)
+            return make_mlp(units,tensor_in_list,edge_output_state_size, activation = activation, **kwargs)
 
 def make_keras_simple_agg(input_size, agg_type):
     """
@@ -842,7 +854,8 @@ def make_mlp_graphnet_functions(units,
         edge_input_size = None, edge_output_size = None,
         use_global_to_edge = False, use_global_to_node = False,
         global_state_size = None,
-        graph_indep = False, message_size = None, aggregation_function = 'mean', activation = "relu"):
+        graph_indep = False, message_size = 'auto', 
+        aggregation_function = 'mean', activation = "relu", activate_last_layer = False):
     """
     Make the 3 functions that define the graph (no Nodes to Global and Edges to Global)
     * If `edge_input_size' and `edge_output_size' are not defined (None) 
@@ -863,11 +876,15 @@ def make_mlp_graphnet_functions(units,
       graph_indep      : default: False - whether message passing happens in this graphNet (if not it is a "graph-independent" GN)
       message_size     : (optional) the size of the passed message - this can be different from the edge-state output size! 
                          What this affects is what goes into the aggregator and to the node-function. Edge state can still be whatever.
+      aggregation_function : ['mean'] the aggregation function to be used. If the aggregation function is a compound one, it may require 
+                       changing the "message_size" (or leave the message size to 'auto' to compute it from this factory function)
 
       activation       : the activation function used for all MLPs
-                         
+
+      activate_last_layer : whether to apply an activation to the last layer.
 
     """
+
     node_input = node_input_size
     node_output = node_output_size
     if edge_input_size is None:
@@ -875,19 +892,29 @@ def make_mlp_graphnet_functions(units,
     if edge_output_size is None:
         edge_output_size = node_output_size
 
-    if message_size is None:
-        message_size = edge_output_size
+    auto_agg_to_message_size_dict = {'mean': edge_output_size, 
+                                     'max' : edge_output_size, 
+                                     'min' : edge_output_size, 
+                                     'sum' : edge_output_size, 
+                                     'mean_max' : edge_output_size * 2}
+
+    if message_size  == 'auto':
+        edge_output_message_size = edge_output_size
+        node_input_message_size  = auto_agg_to_message_size_dict[aggregation_function]
+    else:
+        edge_output_message_size = edge_output_size
+        node_input_message_size = edge_output_size 
 
     edge_mlp_args = {"edge_state_input_shape" : (edge_input_size,),
-            "edge_state_output_shape" : (message_size,),
             "sender_node_state_output_shape" : (node_input,), # this has to be compatible with the output of the aggregator.
-            "edge_output_state_size":(edge_output_size,),
+            "edge_output_state_size":(edge_output_message_size,), # <- in this factory method edge state is the same as message size
             "receiver_node_state_shape" : (node_input,)} 
 
     edge_mlp_args.update({"graph_indep" : graph_indep})
     edge_mlp_args.update({"use_global_state" : use_global_to_edge})
     edge_mlp_args.update({"global_state_shape" : global_state_size}) 
     edge_mlp_args.update({"activation" : activation}) 
+    edge_mlp_args.update({"activate_last_layer" : activate_last_layer})
 
     edge_mlp = make_edge_mlp(units, **edge_mlp_args)
 
@@ -895,16 +922,16 @@ def make_mlp_graphnet_functions(units,
         input_shape = [None, *edge_mlp.outputs[0].shape[1:]]
         agg_fcn  = edge_aggregation_function_factory(input_shape, aggregation_function) # First dimension - incoming edge index
     else:
-        #edge_mlp = None
         agg_fcn = None
 
-    node_mlp_args = {"edge_message_input_shape": (message_size,),
+    node_mlp_args = {"edge_message_input_shape": (node_input_message_size,),
             "node_state_input_shape" : (node_input,),
             "node_emb_size" : (node_output_size,)}
     node_mlp_args.update({"graph_indep" : graph_indep})
     node_mlp_args.update({"global_state_input_shape" : global_state_size})
     node_mlp_args.update({"use_global_input" : use_global_to_node})
     node_mlp_args.update({"activation" : activation}) 
+    node_mlp_args.update({"activate_last_layer":activate_last_layer})
 
     node_mlp = make_node_mlp(units, **node_mlp_args)
     return {"edge_function" : edge_mlp, "node_function": node_mlp, "edge_aggregation_function": agg_fcn} # Can be passed directly  to the GraphNet construction with **kwargs
