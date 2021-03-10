@@ -66,7 +66,7 @@ class TestGraphNet(unittest.TestCase):
     def test_construct_simple_eval_graphnet(self):
         from tf_gnns import GraphNet, make_keras_simple_agg
         edge_input_size = 15
-        node_input_size = 10
+        node_input_size = 11
         node_output_size, edge_output_size = node_input_size, edge_input_size
         node_input = tf.keras.layers.Input(shape = (node_input_size,))
         edge_input = tf.keras.layers.Input(shape = (edge_input_size,))
@@ -80,6 +80,46 @@ class TestGraphNet(unittest.TestCase):
         n2 = Node(np.random.randn(batch_size, node_input_size))
         e12 = Edge(np.random.randn(batch_size, edge_input_size),node_from = n1,node_to = n2)
         g = Graph([n1,n2],[e12])
+
+    def test_mean_max_aggregator(self):
+        """
+        Tests if the special compound aggregator which outputs a concatenation of mean and max works.
+        """
+        from tf_gnns import GraphNet, edge_aggregation_function_factory
+        node_input_size = 5
+        edge_input_size = 5
+        edge_output_size = 5
+        message_shape = 2*edge_output_size #<- message size is larger because it is a concatenation of two aggregators.
+        batch_size = 6
+
+        # The naive implementation:
+        v1,v2,v3 = [np.ones([batch_size, node_input_size])*k for k in range(3)]
+        n1 , n2, n3 = [Node(v_) for v_ in [v1,v2,v3]]
+        e21 = Edge(np.ones([batch_size, node_input_size])*0., node_from = n2, node_to = n1)
+        e31 = Edge(np.ones([batch_size, node_input_size])*10, node_from = n3, node_to = n1)
+
+        #** The "None" is the actual batch dimension during computation with the Naive evaluators 
+        # ("safe" and "batched"). Reduction happens w.r.t. 1st dimension which enumerates incoming edges.
+        edge_aggregation_function = edge_aggregation_function_factory((None, edge_output_size), agg_type = 'mean_max')
+
+        node_input = tf.keras.layers.Input(shape = (node_input_size,), name = "node_state")
+        agg_edge_state_input = tf.keras.layers.Input(shape = (message_shape,), name = "edge_state_agg")
+        edge_input = tf.keras.layers.Input(shape = (edge_input_size,), name = "edge_state")
+
+        node_function = tf.keras.Model(outputs = tf.identity(node_input),
+                inputs = [agg_edge_state_input, node_input],name = "node_function")
+
+        edge_function = tf.keras.Model(outputs = tf.identity(edge_input),
+                inputs = [edge_input])
+
+        gn = GraphNet(node_function = node_function, 
+                edge_function = edge_function, 
+                edge_aggregation_function = edge_aggregation_function)
+        g = Graph([n1,n2,n3],[e21, e31])
+        g_, m = gn.graph_eval(g, eval_mode=  "safe", return_messages = True)
+        m_correct = np.hstack([np.ones([batch_size,edge_output_size])*5, np.ones([batch_size,edge_output_size])*10.])
+        self.assertTrue(np.all(m == m_correct))
+
 
     def test_eval_modes(self):
         """
@@ -180,7 +220,7 @@ class TestGraphNet(unittest.TestCase):
         #new_graphs_list = [graph_tuple.get_graph(k) for k in range(graph_tuple.n_graphs)]
         #self.assertTrue(np.all([(k.is_equal_by_value(m) and k.compare_connectivity(m) ) for k, m in zip(new_graphs_list, old_graphs_list)]))
 
-        graph_fcn = make_mlp_graphnet_functions(150, node_input_size = 10, node_output_size = 10, graph_indep=False)
+        graph_fcn = make_mlp_graphnet_functions(150, node_input_size = 10, node_output_size = 10, graph_indep=False, aggregation_function = "mean")
         gn = GraphNet(**graph_fcn)
         gt_copy = graph_tuple.copy()
         gn.graph_tuple_eval(gt_copy)
