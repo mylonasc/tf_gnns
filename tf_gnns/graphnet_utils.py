@@ -15,7 +15,6 @@ tfd = tfp.distributions
 
 import numpy as np
 
-#from minigraphnets import Gr3aph, GraphTuple imported at init?
 from .datastructures import Graph
 
 def _instantiate_gamma(t, NParams_ = 1):
@@ -32,9 +31,15 @@ class EdgeInput(Enum):
 
 NODE_FUNCTION_INPUTS = ['node_state','edge_state_agg','global_state']
 class NodeInput(Enum):
+    GLOBAL_STATE = 'global_state'
     NODE_STATE = 'node_state'
     EDGE_AGG_STATE = 'edge_state_agg'
+     
+GLOBAL_FUNCTION_INPUTS = ['global_state','edge_state_agg', 'node_state_agg']
+class GlobalInput(Enum):
     GLOBAL_STATE = 'global_state'
+    EDGE_AGG_STATE = 'edge_state_agg'
+    NODE_AGG_STATE = 'node_state_agg'
 
 class GraphNet:
     """
@@ -46,7 +51,9 @@ class GraphNet:
     Should treat the situations where edge functions do not exist more uniformly.
     Also there is no Special treatment for "globals".
     """
-    def __init__(self, edge_function = None, node_function = None, edge_aggregation_function = None, graph_independent = False, name = None ):
+    def __init__(self, edge_function = None, node_function = None, global_function = None,
+            edge_aggregation_function = None, node_to_global_aggregation_function = None, 
+            graph_independent = False, name = None):
         """
         A GraphNet class. 
         The constructor expects that edge_function, node_function are Keras models with specially named inputs. The input names 
@@ -62,6 +69,12 @@ class GraphNet:
             edge_aggregation_function : the edge aggregation function used in the non-fully batched evaluation 
                                         modes. ("batched" and "safe"). If it contains two aggregation functions, 
                                         the second one is the "unsorted_segment" variant (for faster computation with GraphTuples)
+                                        For simplicity the same aggregator is used for the edges-to-nodes aggregation and 
+                                        edges-to-global. 
+            node_aggregation_function : the node aggregator. This aggregates all nodes to provide an input to the global MLP.
+
+            edge_to_global_agg_fn     : function to use for aggregating edges to global.
+            node_to_global_agg_fn     : function to use for agg. nodes to global.
 
             name                       : a string used for the name_scopes of the GNN.
 
@@ -75,6 +88,7 @@ class GraphNet:
         self.node_function             = node_function
         self.scan_node_function() #checking for consistency among some inputs and keeping track of the inputs to the node function.
 
+        self.global_function           = global_function
 
         if graph_independent and edge_aggregation_function is not None:
             Exception("Edge-aggregation functions do not make sense in graph-independent blocks! Check your model creation code for errors.")
@@ -94,7 +108,7 @@ class GraphNet:
             else:
                 self.edge_aggregation_function = edge_aggregation_function        
 
-            self.scan_edge_to_node_aggregation_function(node_function)
+            #self.scan_edge_to_node_aggregation_function(node_function)
 
         
         if self.edge_function is not None: 
@@ -112,6 +126,7 @@ class GraphNet:
         Scans inputs & outputs of agg. function and keeps track of them for subsequent computation.
         Throws an error if the aggregation is not compatible with the rest of the defined GN functions.
         """
+        print("Warning: Empty implementation!")
         return 1
 
     def scan_edge_function(self):
@@ -154,6 +169,9 @@ class GraphNet:
             self.uses_receiver_node_state = True
 
     def scan_node_function(self):
+        """
+        Basic sanity checks for the node function.
+        """
         node_fn_inputs = [i.name for i in self.node_function.inputs]
 
         possible_node_inputs = ['node_state','edge_state_agg','global_state']
@@ -679,10 +697,10 @@ def make_mlp(units, input_tensor_list , output_shape, activation = "relu", **kwa
     y = dense_maker.make(units, activation = activation)(y)
 
     if act_last_layer:
-        y = tf.keras.layers.LayerNormalization()(y)
+        #y = tf.keras.layers.LayerNormalization()(y)
         y = dense_maker.make(output_shape[0], activation = activation)(y)
     else:
-        y = tf.keras.layers.LayerNormalization()(y)
+        #y = tf.keras.layers.LayerNormalization()(y)
         y = dense_maker.make(output_shape[0])(y)
         
 
@@ -717,6 +735,39 @@ def make_node_mlp(units,
             agg_edge_state_in = Input(shape = edge_message_input_shape, name =  NodeInput.EDGE_AGG_STATE.value);
             global_state_in = Input(shape = global_state_input_shape , name = NodeInput.GLOBAL_STATE.value)
             return make_mlp(units, [agg_edge_state_in, node_state_in, global_state_in],node_emb_size, activation = activation, **kwargs)
+
+def make_global_mlp(units, global_in_size = None,
+        global_emb_size = None,
+        node_in_size = None,
+        edge_in_size = None,
+        use_node_agg_input = True, 
+        use_edge_agg_input = True, 
+        use_global_state_input = True,
+        graph_indep = False,
+        activation = "relu",
+        **kwargs):
+    """
+    Always uses the global state input. May use node/edge aggregator (full GraphNet case)
+    """
+
+    if graph_indep and (use_node_agg_input or use_edge_agg_input):
+        Exception("Requested a Graph independent GraphNet global function but speciffied use of node and/or edge aggregated input! This is inconsistent.")
+
+    global_inputs_list = [];
+    if use_global_state_input : 
+        global_state_in = Input(shape = global_in_size, name = GlobalInput.GLOBAL_STATE.value)
+        global_inputs_list.append(global_state_in)
+
+    if use_node_agg_input:
+        node_agg_state = Input(shape = node_in_size, name = GlobalInput.NODE_AGG_STATE.value)
+        global_inputs_list.append(node_agg_state)
+
+    if use_edge_agg_input:
+        edge_agg_state = Input(shape = edge_in_size, name = GlobalInput.EDGE_AGG_STATE.value)
+        global_inputs_list.append(edge_agg_state)
+
+    with tf.name_scope("global_gn") as scope:
+        return make_mlp(units, global_inputs_list , global_emb_size, activation = activation, **kwargs)
 
 
 
@@ -842,7 +893,7 @@ def edge_aggregation_function_factory(input_shape, agg_type = 'mean'):
             'sum' : lambda input_shape : make_keras_simple_agg(input_shape, 'sum'),
             'max' : lambda input_shape : make_keras_simple_agg(input_shape, 'max'),
             'min' : lambda input_shape : make_keras_simple_agg(input_shape, 'min'),
-            'mean_max' : lambda input_shape : make_mean_max_agg(input_shape) # PNA aggregator without degree scalers
+            'mean_max' : lambda input_shape : make_mean_max_agg(input_shape) # compound aggregator (appending aggregators)
             }
 
     aggregators = agg_type_dict[agg_type](input_shape)
@@ -897,7 +948,7 @@ def make_mlp_graphnet_functions(units,
                                      'min' : edge_output_size, 
                                      'sum' : edge_output_size, 
                                      'mean_max' : edge_output_size * 2}
-
+    ################# Edge function creation
     if message_size  == 'auto':
         edge_output_message_size = edge_output_size
         node_input_message_size  = auto_agg_to_message_size_dict[aggregation_function]
@@ -918,6 +969,7 @@ def make_mlp_graphnet_functions(units,
 
     edge_mlp = make_edge_mlp(units, **edge_mlp_args)
 
+    ################# Node function creation
     if not graph_indep:
         input_shape = [None, *edge_mlp.outputs[0].shape[1:]]
         agg_fcn  = edge_aggregation_function_factory(input_shape, aggregation_function) # First dimension - incoming edge index
@@ -934,6 +986,9 @@ def make_mlp_graphnet_functions(units,
     node_mlp_args.update({"activate_last_layer":activate_last_layer})
 
     node_mlp = make_node_mlp(units, **node_mlp_args)
+    ################ Global function creation
+
+
     return {"edge_function" : edge_mlp, "node_function": node_mlp, "edge_aggregation_function": agg_fcn} # Can be passed directly  to the GraphNet construction with **kwargs
 
 

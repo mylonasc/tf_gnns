@@ -67,12 +67,15 @@ class Edge:
 
 
 class Graph:
-    def __init__(self, nodes, edges, NO_VALIDATION=True):
+    def __init__(self, nodes, edges, global_attr = None,NO_VALIDATION=True):
         """
         Creates a graph from a set of edges and nodes
         """
         self.nodes = nodes
         self.edges = edges
+        self.global_attr = global_attr
+        self.has_global = self.global_attr is not None
+        
         if not NO_VALIDATION:
             self.validate_graph()
 
@@ -87,7 +90,8 @@ class Graph:
 
         for e1, e2 in zip(self.edges, g2.edges):
             is_equal = is_equal and tf.reduce_all(e1.edge_tensor== e2.edge_tensor)
-        
+        if self.has_global:
+            is_equal = is_equal and (g2.global_attr == self.global_attr)
         return bool(is_equal)
     
     def compare_connectivity(self,g2):
@@ -229,7 +233,7 @@ def make_graph_tuple_from_graph_list(list_of_graphs):
 
 
 class GraphTuple:
-    def __init__(self, nodes, edges,senders,receivers, n_nodes, n_edges, sort_receivers_to_edges  = False):
+    def __init__(self, nodes, edges,senders,receivers, n_nodes, n_edges, global_attr = None,sort_receivers_to_edges  = False):
         """
         A graph tuple contains multiple graphs for faster batched computation. 
         
@@ -240,6 +244,7 @@ class GraphTuple:
             receivers  : a list of receiver node indices defining the graph connectivity. The indices are unique accross graphs
             n_nodes    : a list, a numpy array or a tf.Tensor containing how many nodes are in each graph represented by the nodes and edges in the object
             n_edges    : a list,a numpy array or a tf.Tensor containing how many edges are in each graph represented by the nodes and edges in the object
+            global_attr: a `tf.Tensor` or a `np.array` containing global attributes (first size - self.n_graphs)
             sort_receivers :  whether to sort the edges on construction, allowing for not needing to sort the output of the node receiver aggregators.
         """
         # Sort edges according to receivers and sort receivers:
@@ -252,6 +257,10 @@ class GraphTuple:
         self.n_nodes = n_nodes     # integers
         self.n_edges = n_edges     # integers
         self.n_graphs = len(self.n_nodes) # assuming the n_nodes is a list containing the number of nodes for each graph.
+
+        self.global_attr = global_attr
+        self.has_global = self.global_attr is not None
+        
 
         graph_indices_nodes = []
         for k_,k in enumerate(self.n_nodes):
@@ -274,7 +283,13 @@ class GraphTuple:
                 return all(v1_ == v2_)
             if isinstance(v1_, np.array) and isinstance(v2_. np.array):
                 return all(v1_ == v2_)
-        return all([_equals_or_all_equals(v1__,v2__) for v1__, v2__ in zip(v1,v2)])
+        if self.has_global:
+            global_same = _equals_or_all_equals(other_graph_tuple.global_attr,self.global_attr)
+            assert(other_graph_tuple.has_global)
+        else:
+            global_same = True
+
+        return all([_equals_or_all_equals(v1__,v2__) for v1__, v2__ in zip(v1,v2)]) and global_same
 
     def copy(self):
         n = _copy_any_ds(self.nodes)
@@ -284,7 +299,7 @@ class GraphTuple:
         nnodes = _copy_any_ds(self.n_nodes)
         nedges = _copy_any_ds(self.n_edges)
         ngraphs = _copy_any_ds(self.n_graphs)
-        return GraphTuple(n,e,s,r,nnodes,nedges)
+        return GraphTuple(n,e,s,r,nnodes,nedges, global_attr = self.global_attr)
 
 
     def __add__(self, g2):
@@ -294,7 +309,7 @@ class GraphTuple:
         r = self.receivers
         n_nodes = self.n_nodes
         n_edges = g2.n_edges
-        return GraphTuple(nodes,edges,s,r,n_nodes, n_edges)
+        return GraphTuple(nodes,edges,s,r,n_nodes, n_edges, global_attr = self.global_attr)
 
         
     def get_graph(self, graph_index):
@@ -315,7 +330,11 @@ class GraphTuple:
         receivers = receivers - start_idx_nodes
         nodes = [Node(node_attr[tf.newaxis]) for node_attr in nodes_attrs]
         edges = [Edge(edge_attr_tensor[tf.newaxis], nodes[node_from_idx], nodes[node_to_idx]) for edge_attr_tensor, node_from_idx, node_to_idx in zip(edge_attr, senders,receivers)]
-        return Graph(nodes, edges)
+        if self.has_global:
+            global_attr = self.global_attr[graph_index]
+        else:
+            global_attr = None
+        return Graph(nodes, edges, global_attr = global_attr)
 
         
 
