@@ -270,8 +270,42 @@ class GraphTuple:
         for k_,k in enumerate(self.n_edges):
             graph_indices_edges.extend(np.ones(k).astype("int")*k_)
 
+        
+        if self.has_global: # <- default global is "None". If it was provided, set the global variable (together with some aggregator indices for convenience and performance).
+            self.assign_global(global_attr)
+
         self.graph_indices_nodes , self.graph_indices_edges = graph_indices_nodes, graph_indices_edges
+
+        self.update_reps_for_globals()
+
+
+
+
+    def update_reps_for_globals(self):
+        """
+        Some flat vectors for segment sums when dealing with global variables.
+        This is created even when there are no globals (one just needs the node 
+        and edge counts for each graph.)
+        """
+        global_reps_for_edges = [] # <- used to cast the global tensor to a compatible size for the edges.
+        for k, e in enumerate(self.n_edges):
+            global_reps_for_edges.extend([k]*e)
+        self._global_reps_for_edges = global_reps_for_edges
+
+        global_reps_for_nodes = [] # <- similarly for nodes:
+        for k, e in enumerate(self.n_nodes):
+            global_reps_for_nodes.extend([k]*e)
+
+        self._global_reps_for_nodes = global_reps_for_nodes
+
     
+    def assign_global(self, global_attr, check_shape = False):
+        self.has_global = True
+        if check_shape:
+            assert(tf.shape(global_attr)[0] == self.n_graphs)
+        self.global_attr = global_attr
+
+
 
     def is_equal_by_value(self, other_graph_tuple):
         v1 = self.edges,self.nodes, self.receivers,self.senders, self.n_nodes, self.n_edges, self.n_graphs

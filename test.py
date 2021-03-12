@@ -85,7 +85,7 @@ class TestGraphNet(unittest.TestCase):
         """
         Tests if the special compound aggregator which outputs a concatenation of mean and max works.
         """
-        from tf_gnns import GraphNet, edge_aggregation_function_factory
+        from tf_gnns import GraphNet, _aggregation_function_factory
         node_input_size = 5
         edge_input_size = 5
         edge_output_size = 5
@@ -100,7 +100,7 @@ class TestGraphNet(unittest.TestCase):
 
         #** The "None" is the actual batch dimension during computation with the Naive evaluators 
         # ("safe" and "batched"). Reduction happens w.r.t. 1st dimension which enumerates incoming edges.
-        edge_aggregation_function = edge_aggregation_function_factory((None, edge_output_size), agg_type = 'mean_max')
+        edge_aggregation_function = _aggregation_function_factory((None, edge_output_size), agg_type = 'mean_max')
 
         node_input = tf.keras.layers.Input(shape = (node_input_size,), name = "node_state")
         agg_edge_state_input = tf.keras.layers.Input(shape = (message_shape,), name = "edge_state_agg")
@@ -181,7 +181,6 @@ class TestGraphNet(unittest.TestCase):
         gn_loaded = GraphNet.make_from_path("/tmp/test_gn")
         self.assertTrue(np.all([np.sum(np.abs(w1 - w2))<1e-10 for w1,w2 in zip(gn.weights,gn_loaded.weights)]))
 
-
     def test_graph_tuple_eval(self):
         """
         The graph tuples are graphs of different sizes batched to a single object,
@@ -237,7 +236,6 @@ class TestGraphNet(unittest.TestCase):
         Test if the evaluation of graph tuples with global variables works.
         """
 
-
         ## Constructing a graph tuple:
 
         batch_size = 1
@@ -264,13 +262,22 @@ class TestGraphNet(unittest.TestCase):
         old_graphs_list = [g1.copy(),g2.copy(),g3.copy()]
         graph_tuple = make_graph_tuple_from_graph_list(old_graphs_list)
         global_vars = tf.Variable(np.random.randn(graph_tuple.n_graphs,global_attr_size))
+        global_out = 10
 
         graph_fcn = make_mlp_graphnet_functions(150, node_input_size = 10, node_output_size = 10,
-                graph_indep=False, use_global_to_edge = True, use_global_to_node = True,global_state_size = global_attr_size)
+                graph_indep=False, use_global_to_edge = True, use_global_to_node = True, use_global_input = True,
+                global_input_size = global_attr_size, 
+                global_output_size = 10,
+                create_global_function = True)
         gn = GraphNet(**graph_fcn)
         gt_copy = graph_tuple.copy()
-        out = gn.graph_tuple_eval(gt_copy, global_vars)
-        print(out)
+
+        ## This is how a global is assigned. The "update.." creates some flat vectors useful 
+        #  for the segment sums and reshaping of the tensors (when/in they are used in the 
+        #  node and edge computations)
+        gt_copy.assign_global(global_vars)
+        gt_copy.update_reps_for_globals()
+        out = gn.graph_tuple_eval(gt_copy )#, global_vars)
 
         #graphs_evaluated_separately = [gn.graph_eval(g_)  for g_ in old_graphs_list]
         #graphs_evaluated_from_graph_tuple = [gt_copy.get_graph(i) for i in range(gt_copy.n_graphs)]
@@ -279,6 +286,61 @@ class TestGraphNet(unittest.TestCase):
         #for g1,g2 in zip(graphs_evaluated_from_graph_tuple, graphs_evaluated_separately):
         #    self.assertTrue(tf.norm(flatten_nodes(g1)- flatten_nodes(g2))<1e-10)
         #    self.assertTrue(tf.norm(flatten_edges(g1) - flatten_edges(g2)) < 1e-10)
+
+    def test_computation_graph_to_global(self):
+        """
+        Tests the construction of a simple GraphTuple without a global attribute
+        and its computation with a full GN (without a global input)
+        """
+        import tensorflow as tf
+        import numpy as np
+
+        from tf_gnns import GraphTuple
+        from tf_gnns.graphnet_utils import _aggregation_function_factory
+
+        from tf_gnns import make_mlp_graphnet_functions, GraphNet, Node, Edge, Graph, GraphTuple, make_graph_tuple_from_graph_list
+
+        ## Testing GN that contains globals:
+
+        ### Create an encode-core-decode network:
+
+        ## Create a GraphTuple to compute with:
+        node_state_size=4;
+        edge_state_size = 10;
+        ngraphs = 16;
+
+        graphs = [];
+        for gr in range(ngraphs):
+            n1 = Node(np.random.randn(1, node_state_size))
+            n2 = Node(np.random.randn(1, node_state_size))
+            n3 = Node(np.random.randn(1, node_state_size))
+            e12 = Edge(np.random.randn(1, edge_state_size) , node_from=n1,node_to=n2)
+            e13 = Edge(np.random.randn(1, edge_state_size) , node_from=n1,node_to=n2)
+            e23 = Edge(np.random.randn(1, edge_state_size) , node_from=n1,node_to=n2)
+            graphs.append(Graph([n1,n2,n3],[e12,e13,e23]))
+
+        gt = make_graph_tuple_from_graph_list(graphs    )
+
+        units = 45
+        gi_node_input_size = node_state_size
+        gi_edge_input_size = edge_state_size
+        gn_core_size = 15
+
+        ## Creation of a graph-to-global network (without global in the input side:)
+        gn_input = make_mlp_graphnet_functions(45,
+                                    gi_node_input_size,
+                                    gn_core_size,edge_input_size=gi_edge_input_size,
+                                   edge_output_size=gn_core_size,
+                                   create_global_function = True,
+                                   global_input_size=None,
+                                   use_global_input= False,
+                                   global_output_size = gn_core_size,
+                                              graph_indep = False)
+        gn_gi = GraphNet(**gn_input)
+
+        gt_out = gn_gi.graph_tuple_eval(gt.copy())
+
+        self.assertTrue(gt_out.global_attr.shape == (ngraphs,gn_core_size))
 
 if __name__ == "__main__":
 
