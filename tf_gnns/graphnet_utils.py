@@ -191,7 +191,6 @@ class GraphNet:
             global_fn_inputs = [i.name for i in self.global_function.inputs]
             possible_global_inputs = ['node_state_agg','edge_state_agg','global_state']
             for nn in possible_global_inputs:
-                print(nn)
                 for g_ in global_fn_inputs:
                     if nn in g_:
                         self.global_input_dict.update({nn : g_})
@@ -806,7 +805,18 @@ def make_global_mlp(units, global_in_size = None,
     """
 
     if graph_indep and (use_node_agg_input or use_edge_agg_input):
-        Exception("Requested a Graph independent GraphNet global function but speciffied use of node and/or edge aggregated input! This is inconsistent.")
+        raise Exception("Requested a Graph independent GraphNet global function but speciffied use of node and/or edge aggregated input! This is inconsistent.")
+
+    if graph_indep and ((node_in_size is not None) or (edge_in_size is not None)):
+        str_msg = ''
+        if (node_in_size is not None):
+            str_msg += '`node_in_size` [%i]'%node_in_size
+        if (edge_in_size is not None):
+            str_msg +=  '`edge_in_size` [%i]'%edge_in_size
+        raise Exception("You have defined shapes for %s and a graph indep. MLP. This is not allowed (check the GN factory method for errors)."%str_msg)
+
+
+
 
     global_inputs_list = [];
     if use_global_state_input : 
@@ -1145,184 +1155,4 @@ def make_mlp_graphnet_functions(units,
             'node_to_global_aggregation_function' : node_to_global_agg, #<- the constructor for GNs does not support different aggs. for edges yet.
             'graph_independent' : graph_indep,
             'use_global_input' : use_global_input} # Can be passed directly  to the GraphNet construction with **kwargs
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
