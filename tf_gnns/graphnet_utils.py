@@ -38,7 +38,8 @@ def _graphtuple_to_tensor_dict(gt_):
             'senders' : _tf_constant_or_none(gt_.senders),
             'receivers' :_tf_constant_or_none(gt_.receivers),
             'n_edges' : _tf_constant_or_none(gt_.n_edges),
-            'n_nodes' : _tf_constant_or_none(gt_.n_nodes) ,
+            'n_nodes' : _tf_constant_or_none(gt_.n_nodes),
+            'n_graphs' : _tf_constant_or_none(gt_.n_graphs),
             'global_attr' : _tf_constant_or_none(gt_.global_attr),
            '_global_reps_for_edges' : _tf_constant_or_none(gt_._global_reps_for_edges),
            '_global_reps_for_nodes' : _tf_constant_or_none(gt_._global_reps_for_nodes)}
@@ -401,7 +402,7 @@ class GraphNet:
     @tf.function
     def edge_block(self,edges = None, nodes = None, senders = None, receivers = None,
                    n_edges = None, n_nodes = None,
-                   global_attr= None,_global_reps_for_edges = None, _global_reps_for_nodes = None):
+                   global_attr= None,_global_reps_for_edges = None, _global_reps_for_nodes = None,n_graphs = None):
         
         edge_inputs  = {}
         if EdgeInput.EDGE_STATE.value in self.edge_input_dict.keys():
@@ -428,7 +429,7 @@ class GraphNet:
 
     @tf.function
     def node_block(self,edges = None, nodes = None, senders = None, receivers = None, 
-                  n_edges = None, n_nodes = None, global_attr = None,_global_reps_for_edges = None, _global_reps_for_nodes = None):
+                  n_edges = None, n_nodes = None, global_attr = None,_global_reps_for_edges = None, _global_reps_for_nodes = None,n_graphs = None):
         # 2) Aggregate the messages (unsorted segment sums etc):
         node_inputs = OrderedDict()
         # 3) Compute node function:
@@ -454,7 +455,7 @@ class GraphNet:
     @tf.function
     def global_block(self, edges = None, nodes = None, senders = None, receivers = None, 
                     n_edges = None, n_nodes = None , global_attr = None, _global_reps_for_edges = None,
-                     _global_reps_for_nodes = None):
+                     _global_reps_for_nodes = None, n_graphs = None):
         
         global_inputs = {}
         n_graphs = len(n_edges)

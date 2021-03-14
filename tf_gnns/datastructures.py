@@ -75,6 +75,8 @@ class Graph:
         self.edges = edges
         self.global_attr = global_attr
         self.has_global = self.global_attr is not None
+
+
         
         if not NO_VALIDATION:
             self.validate_graph()
@@ -233,7 +235,7 @@ def make_graph_tuple_from_graph_list(list_of_graphs):
 
 
 class GraphTuple:
-    def __init__(self, nodes, edges,senders,receivers, n_nodes, n_edges, global_attr = None,sort_receivers_to_edges  = False):
+    def __init__(self, nodes, edges,senders,receivers, n_nodes, n_edges, global_attr = None,sort_receivers_to_edges  = False , _global_reps_for_nodes = None, _global_reps_for_edges = None, n_graphs = None):
         """
         A graph tuple contains multiple graphs for faster batched computation. 
         
@@ -244,8 +246,11 @@ class GraphTuple:
             receivers  : a list of receiver node indices defining the graph connectivity. The indices are unique accross graphs
             n_nodes    : a list, a numpy array or a tf.Tensor containing how many nodes are in each graph represented by the nodes and edges in the object
             n_edges    : a list,a numpy array or a tf.Tensor containing how many edges are in each graph represented by the nodes and edges in the object
-            global_attr: a `tf.Tensor` or a `np.array` containing global attributes (first size - self.n_graphs)
-            sort_receivers :  whether to sort the edges on construction, allowing for not needing to sort the output of the node receiver aggregators.
+            global_attr: (optional) a `tf.Tensor` or a `np.array` containing global attributes (first size - self.n_graphs)
+            sort_receivers :  (optional) whether to sort the edges on construction, allowing for not needing to sort the output of the node receiver aggregators.
+            _global_reps_for_edges : (optional) used for the aggregation of the global var.
+            _global_reps_for_nodes : (optional) used for the aggregation of the global var.
+            n_graphs   : (optional)
         """
         # Sort edges according to receivers and sort receivers:
         assert(len(n_nodes) == len(n_edges))
@@ -256,7 +261,8 @@ class GraphTuple:
         self.receivers = receivers # integers
         self.n_nodes = n_nodes     # integers
         self.n_edges = n_edges     # integers
-        self.n_graphs = len(self.n_nodes) # assuming the n_nodes is a list containing the number of nodes for each graph.
+        if n_graphs is None:
+            self.n_graphs = len(self.n_nodes) # assuming the n_nodes is a list containing the number of nodes for each graph.
 
         self.global_attr = global_attr
         self.has_global = self.global_attr is not None
@@ -276,7 +282,8 @@ class GraphTuple:
 
         self.graph_indices_nodes , self.graph_indices_edges = graph_indices_nodes, graph_indices_edges
 
-        self.update_reps_for_globals()
+        if (_global_reps_for_edges is None ) and (_global_reps_for_nodes is None):
+            self.update_reps_for_globals()
 
 
 
