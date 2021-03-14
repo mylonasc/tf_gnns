@@ -129,6 +129,7 @@ class TestGraphNet(unittest.TestCase):
         rounding errors and the different comp. graphs.)
         """
         from tf_gnns import GraphNet, make_mlp_graphnet_functions
+        import code
 
         batch_size = 12
         tf.keras.backend.set_floatx("float64")
@@ -147,33 +148,40 @@ class TestGraphNet(unittest.TestCase):
 
         g1 = Graph([n1,n2,n3],[e12,e21,e23])
 
+
+        node_output_size = 17
         ## The non-graph independent version:
         gi = False
-        graph_fcn = make_mlp_graphnet_functions(150, node_input_size = node_input_size, node_output_size = node_input_size, graph_indep=gi)
-        graph_fcn.update({"graph_independent" : gi})
+        graph_fcn = make_mlp_graphnet_functions(150, 
+                                            node_input_size = node_input_size, 
+                                            node_output_size = node_output_size, 
+                                            graph_indep=False)
+
         gn = GraphNet(**graph_fcn )
         res1 = gn.graph_eval(g1.copy(),eval_mode = "safe")
         res2 = gn.graph_eval(g1.copy(), eval_mode = "batched")
-        error_nodes = np.max([np.linalg.norm(n1.node_attr_tensor - n2.node_attr_tensor) for n1, n2 in zip(res1.nodes, res2.nodes)])/np.min(node_abs_vals)
-        error_edges = np.max([np.linalg.norm(e1.edge_tensor - e2.edge_tensor) for e1,e2 in zip(res1.edges, res2.edges)])/np.min(edge_abs_vals)
+
+        error_nodes = np.max([np.linalg.norm(n1_.node_attr_tensor - n2_.node_attr_tensor) for n1_, n2_ in zip(res1.nodes, res2.nodes)])/np.min(node_abs_vals)
+        error_edges = np.max([np.linalg.norm(e1_.edge_tensor - e2_.edge_tensor) for e1_,e2_ in zip(res1.edges, res2.edges)])/np.min(edge_abs_vals)
         #print(error_nodes, error_edges)
         self.assertTrue(error_nodes < 1e-10)
         self.assertTrue(error_edges < 1e-10)
 
         ## The graph-independent version:
         gi = True
-        graph_fcn = make_mlp_graphnet_functions(150, node_input_size = node_input_size, node_output_size = node_input_size, graph_indep=gi)
+        graph_fcn = make_mlp_graphnet_functions(150, node_input_size = node_input_size, node_output_size = node_input_size, graph_indep=gi, use_edge_state_agg_input = False)
         graph_fcn.update({"graph_independent" : gi})
         gn = GraphNet(**graph_fcn )
         res1 = gn.graph_eval(g1.copy(),eval_mode = "safe")
         res2 = gn.graph_eval(g1.copy(), eval_mode = "batched")
         error_nodes = np.max([np.linalg.norm(n1.node_attr_tensor - n2.node_attr_tensor) for n1, n2 in zip(res1.nodes, res2.nodes)])/np.min(node_abs_vals)
         error_edges = np.max([np.linalg.norm(e1.edge_tensor - e2.edge_tensor) for e1,e2 in zip(res1.edges, res2.edges)])/np.min(edge_abs_vals)
-        #print(error_nodes, error_edges)
         self.assertTrue(error_nodes < 1e-10)
         self.assertTrue(error_edges < 1e-10)
 
     def test_save_load(self):
+        # TODO: this needs to be updated for the global blocks (there are 3 more functions to be treated). 
+        #       Write another test and keep this one, in order to keep backwards compatibility.
         from tf_gnns import make_mlp_graphnet_functions, GraphNet
         graph_fcn = make_mlp_graphnet_functions(150, node_input_size = 10, node_output_size = 10, graph_indep=False)
         gn = GraphNet(**graph_fcn)
@@ -264,11 +272,17 @@ class TestGraphNet(unittest.TestCase):
         global_vars = tf.Variable(np.random.randn(graph_tuple.n_graphs,global_attr_size))
         global_out = 10
 
-        graph_fcn = make_mlp_graphnet_functions(150, node_input_size = 10, node_output_size = 10,
-                graph_indep=False, use_global_to_edge = True, use_global_to_node = True, use_global_input = True,
+        graph_fcn = make_mlp_graphnet_functions(150,
+                node_input_size = 10,
+                node_output_size = 10,
+                graph_indep=False,
+                use_global_to_edge = True,
+                use_global_to_node = True, 
+                use_global_input = True,
                 global_input_size = global_attr_size, 
                 global_output_size = 10,
                 create_global_function = True)
+
         gn = GraphNet(**graph_fcn)
         gt_copy = graph_tuple.copy()
 
@@ -279,13 +293,6 @@ class TestGraphNet(unittest.TestCase):
         gt_copy.update_reps_for_globals()
         out = gn.graph_tuple_eval(gt_copy )#, global_vars)
 
-        #graphs_evaluated_separately = [gn.graph_eval(g_)  for g_ in old_graphs_list]
-        #graphs_evaluated_from_graph_tuple = [gt_copy.get_graph(i) for i in range(gt_copy.n_graphs)]
-        #flatten_nodes = lambda x : tf.stack([x_.get_state() for x_ in x.nodes])
-        #flatten_edges = lambda x : tf.stack([x_.edge_tensor for x_ in x.edges])
-        #for g1,g2 in zip(graphs_evaluated_from_graph_tuple, graphs_evaluated_separately):
-        #    self.assertTrue(tf.norm(flatten_nodes(g1)- flatten_nodes(g2))<1e-10)
-        #    self.assertTrue(tf.norm(flatten_edges(g1) - flatten_edges(g2)) < 1e-10)
 
     def test_computation_graph_to_global(self):
         """
@@ -325,22 +332,110 @@ class TestGraphNet(unittest.TestCase):
         gi_node_input_size = node_state_size
         gi_edge_input_size = edge_state_size
         gn_core_size = 15
-
+       
         ## Creation of a graph-to-global network (without global in the input side:)
         gn_input = make_mlp_graphnet_functions(45,
                                     gi_node_input_size,
-                                    gn_core_size,edge_input_size=gi_edge_input_size,
-                                   edge_output_size=gn_core_size,
-                                   create_global_function = True,
-                                   global_input_size=None,
-                                   use_global_input= False,
-                                   global_output_size = gn_core_size,
-                                              graph_indep = False)
+                                    gn_core_size,
+                                    edge_input_size=gi_edge_input_size,
+                                    edge_output_size=gn_core_size,
+                                    create_global_function = True,
+                                    global_input_size=None,
+                                    use_global_input= False,
+                                    global_output_size = gn_core_size,
+                                    graph_indep = False)
+
+        
+        gn_constr_input_named_params = ['edge_function', 
+                'global_function', 
+                'node_function',
+                'edge_aggregation_function', 
+                'node_to_global_aggregation_function',
+                'graph_independent','use_global_input']
+
+        correct_keys = np.all([k in gn_constr_input_named_params for k in gn_input.keys()])
+        self.assertTrue(correct_keys)
         gn_gi = GraphNet(**gn_input)
-
         gt_out = gn_gi.graph_tuple_eval(gt.copy())
-
         self.assertTrue(gt_out.global_attr.shape == (ngraphs,gn_core_size))
+
+class TestTraced_eval(unittest.TestCase):
+    def test_correct_results_traced(self):
+        import tensorflow as tf
+        import numpy as np
+
+        from tf_gnns import GraphTuple
+        from tf_gnns.graphnet_utils import _aggregation_function_factory, make_full_graphnet_functions
+
+        from tf_gnns import make_mlp_graphnet_functions, GraphNet, Node, Edge, Graph, GraphTuple, make_graph_tuple_from_graph_list
+        import code
+
+
+        ## Create a GraphTuple to compute with:
+        node_state_size=4;
+        edge_state_size = 10;
+        ngraphs = 16;
+
+        graphs = [];
+        for gr in range(ngraphs):
+            n1 = Node(np.random.randn(1, node_state_size))
+            n2 = Node(np.random.randn(1, node_state_size))
+            n3 = Node(np.random.randn(1, node_state_size))
+            e12 = Edge(np.random.randn(1, edge_state_size) , node_from=n1,node_to=n2)
+            e13 = Edge(np.random.randn(1, edge_state_size) , node_from=n1,node_to=n3)
+            e23 = Edge(np.random.randn(1, edge_state_size) , node_from=n2,node_to=n3)
+            graphs.append(Graph([n1,n2,n3],[e12,e13,e23]))
+
+        gt = make_graph_tuple_from_graph_list(graphs)
+
+        units = 45
+        gi_node_input_size = node_state_size
+        gi_edge_input_size = edge_state_size
+        gn_core_size = 15
+       
+        ## Creation of a graph-to-global network (without global in the input side:)
+        gn_input_args = make_mlp_graphnet_functions(45,
+                                    gi_node_input_size,
+                                    gn_core_size,
+                                    edge_input_size=gi_edge_input_size,
+                                    edge_output_size=gn_core_size,
+                                    create_global_function = True,
+                                    global_input_size=None,
+                                    use_global_input= False,
+                                    global_output_size = gn_core_size,
+                                    graph_indep = False)
+
+        gn_core_args = make_full_graphnet_functions(units, gn_core_size)
+
+        
+        gn_constr_input_named_params = ['edge_function', 
+                'global_function', 
+                'node_function',
+                'edge_aggregation_function', 
+                'node_to_global_aggregation_function',
+                'graph_independent','use_global_input']
+
+        correct_keys = np.all([k in gn_constr_input_named_params for k in gn_input_args.keys()])
+        self.assertTrue(correct_keys)
+
+        gn_gi = GraphNet(**gn_input_args)
+        gn_core = GraphNet(**gn_core_args)
+        gt_out_1 = gn_gi.graph_tuple_eval(gt.copy())
+        gt_out = gn_core.graph_tuple_eval(gt_out_1)
+
+        from tf_gnns.graphnet_utils import _graphtuple_to_tensor_dict
+
+        tensor_dict_out = gn_gi.eval_tensor_dict(_graphtuple_to_tensor_dict(gt.copy()))
+        tensor_dict_out = gn_core.eval_tensor_dict(tensor_dict_out)
+        edges_err = np.linalg.norm(gt_out.edges - tensor_dict_out['edges']) 
+        nodes_err = np.linalg.norm(gt_out.nodes - tensor_dict_out['nodes']) 
+        glob_err  = np.linalg.norm(gt_out.global_attr  - tensor_dict_out['global_attr'])
+
+        self.assertTrue(edges_err < 1e-10)
+        self.assertTrue(nodes_err < 1e-10)
+        self.assertTrue(glob_err < 1e-10)
+
+
 
 if __name__ == "__main__":
 

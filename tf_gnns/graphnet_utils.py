@@ -3,6 +3,7 @@ import os
 from enum import Enum
 import inspect
 import code
+from collections import OrderedDict
 
 # tensorflow imports:
 import tensorflow as tf
@@ -19,6 +20,29 @@ from .datastructures import Graph
 
 def _instantiate_gamma(t, NParams_ = 1):
     return tfd.Gamma(concentration = t[...,0:NParams_], rate = t[...,NParams_:2*NParams_])
+
+
+def _graphtuple_to_tensor_dict(gt_):
+    """
+    Transform a GT to a dictionary.
+    Used for employing the traceable graph_dict evaluation function.
+    """
+    def _tf_constant_or_none(v):
+        if v is None:
+            return None
+        else:
+            return tf.constant(v)
+
+    return {'edges' : _tf_constant_or_none(gt_.edges),
+            'nodes' : _tf_constant_or_none(gt_.nodes),
+            'senders' : _tf_constant_or_none(gt_.senders),
+            'receivers' :_tf_constant_or_none(gt_.receivers),
+            'n_edges' : _tf_constant_or_none(gt_.n_edges),
+            'n_nodes' : _tf_constant_or_none(gt_.n_nodes) ,
+            'global_attr' : _tf_constant_or_none(gt_.global_attr),
+           '_global_reps_for_edges' : _tf_constant_or_none(gt_._global_reps_for_edges),
+           '_global_reps_for_nodes' : _tf_constant_or_none(gt_._global_reps_for_nodes)}
+
 
 
 EDGE_FUNCTION_INPUTS = ['global_state','sender_node_state','receiver_node_state','edge_state']
@@ -61,11 +85,12 @@ class GraphNet:
         they are correctly used when the `GraphNet` is evaluated on some `Graph` or `GraphTuple`.
         
         Parameters:
-            edge_function             : the edge function (depending on whether the graphnet block is graph 
-                                        independent, and whether the source and destinations are used,
-                                        this has different input sizes)
+            edge_function             : the edge function (depending on whether the graphnet block 
+                                        is graph independent, and whether the source and destinations 
+                                        are used, this has different input sizes)
 
-            node_function             : the node function (if this is graph independent it has only node inputs)
+            node_function             : the node function (if this is graph independent it has only 
+                                        node inputs)
 
             edge_aggregation_function : the edge aggregation function used in the non-fully 
                                         batched evaluation modes. ("batched" and "safe"). If it 
@@ -83,7 +108,7 @@ class GraphNet:
             node_to_global_agg_fn     : function to use for agg. nodes to global.
             use_global_input          : whether to use the global input or not
 
-            name                       : a string used for the name_scopes of the GNN.
+            name                      : a string used for the name_scopes of the GNN.
 
         """
         self.is_graph_independent = graph_independent # should come first.
@@ -263,6 +288,9 @@ class GraphNet:
 
         """
         all_weights = [ *self.edge_function.weights, *self.node_function.weights]
+        if self.global_function is not None:
+            all_weights.extend(self.global_function.weights)
+
         #if self.node_to_prob_function is not None:
         #    all_weights.extend(self.node_to_prob_function.weights)
         
@@ -274,7 +302,11 @@ class GraphNet:
         return all_weights
         
     def __call__(self, graph):
-        return self.graph_eval(graph)
+        if not isinstance(graph, GraphTuple):
+            return self.graph_eval(graph)
+        else:
+            return self.graph_tuple_eval(GraphTuple)
+
 
     def graph_tuple_eval(self, tf_graph_tuple : GraphTuple):
         # This method parallels what the deepmind library does for faster batched computation. 
@@ -357,7 +389,6 @@ class GraphNet:
                     tf_graph_tuple.nodes, tf_graph_tuple._global_reps_for_nodes, tf_graph_tuple.n_graphs)
                 global_inputs.update({GlobalInput.NODE_AGG_STATE.value : nodes_to_global_messages})
 
-
         if GlobalInput.GLOBAL_STATE.value in self.global_input_dict.keys():
             global_inputs.update({GlobalInput.GLOBAL_STATE.value  : tf_graph_tuple.global_attr})
         if len(global_inputs) > 0:
@@ -366,6 +397,110 @@ class GraphNet:
         
         return tf_graph_tuple
         # no changes in Graph topology - nothing else to do!
+
+    @tf.function
+    def edge_block(self,edges = None, nodes = None, senders = None, receivers = None,
+                   n_edges = None, n_nodes = None,
+                   global_attr= None,_global_reps_for_edges = None, _global_reps_for_nodes = None):
+        
+        edge_inputs  = {}
+        if EdgeInput.EDGE_STATE.value in self.edge_input_dict.keys():
+            v = edges
+            edge_inputs.update({EdgeInput.EDGE_STATE.value : v})
+
+        if EdgeInput.SENDER_NODE_STATE.value in self.edge_input_dict.keys():
+            v  = tf.gather(nodes, senders, axis = 0)
+            edge_inputs.update({EdgeInput.SENDER_NODE_STATE.value : v})
+
+        if EdgeInput.RECEIVER_NODE_STATE.value in self.edge_input_dict.keys():
+            v = tf.gather(nodes, receivers,axis = 0)
+            edge_inputs.update({EdgeInput.RECEIVER_NODE_STATE.value : v })
+
+        if EdgeInput.GLOBAL_STATE.value in self.edge_input_dict.keys():
+            edge_reps = _global_reps_for_edges
+            edge_inputs.update({
+                EdgeInput.GLOBAL_STATE.value : tf.gather(global_attr,edge_reps, axis = 0)
+            })
+
+
+        edges = self.edge_function(edge_inputs)
+        return edges
+
+    @tf.function
+    def node_block(self,edges = None, nodes = None, senders = None, receivers = None, 
+                  n_edges = None, n_nodes = None, global_attr = None,_global_reps_for_edges = None, _global_reps_for_nodes = None):
+        # 2) Aggregate the messages (unsorted segment sums etc):
+        node_inputs = OrderedDict()
+        # 3) Compute node function:
+        if NodeInput.NODE_STATE.value in self.node_input_dict.keys():
+            node_inputs.update({NodeInput.NODE_STATE.value : nodes})
+
+        if NodeInput.GLOBAL_STATE.value in self.node_input_dict.keys():
+            node_reps = _global_reps_for_nodes
+            node_inputs.update({NodeInput.GLOBAL_STATE.value : tf.gather(global_attr,node_reps)})
+
+        if NodeInput.EDGE_AGG_STATE.value in self.node_input_dict.keys():
+            if self.has_seg_aggregator:
+                max_seq = int(tf.reduce_sum(n_nodes))
+                edge_to_nodes_messages = self.edge_aggregation_function_seg(edges, receivers, max_seq)
+            else:
+                raise Exception("Not Implemented!")
+            node_inputs.update({NodeInput.EDGE_AGG_STATE.value : edge_to_nodes_messages})
+            
+        nodes = self.node_function(node_inputs)
+            
+        return nodes
+
+    @tf.function
+    def global_block(self, edges = None, nodes = None, senders = None, receivers = None, 
+                    n_edges = None, n_nodes = None , global_attr = None, _global_reps_for_edges = None,
+                     _global_reps_for_nodes = None):
+        
+        global_inputs = {}
+        n_graphs = len(n_edges)
+        if (GlobalInput.EDGE_AGG_STATE.value in self.global_input_dict.keys()):
+            if self.has_seg_aggregator: #<- same aggregator for edges-to-nodes and edges-to-global.
+                edges_to_global_messages = self.edge_aggregation_function_seg(
+                        edges, _global_reps_for_edges, n_graphs)
+                global_inputs.update({GlobalInput.EDGE_AGG_STATE.value : edges_to_global_messages})
+            else:
+                raise Exception("Not Implemented!")
+
+        if (GlobalInput.NODE_AGG_STATE.value in self.global_input_dict.keys()):
+            if self.has_seg_aggregator:
+                nodes_to_global_messages = self.node_to_global_aggregation_function[1](
+                    nodes, _global_reps_for_nodes, n_graphs)
+                global_inputs.update({GlobalInput.NODE_AGG_STATE.value : nodes_to_global_messages})
+
+        if GlobalInput.GLOBAL_STATE.value in self.global_input_dict.keys():
+            global_inputs.update({GlobalInput.GLOBAL_STATE.value  : global_attr})
+            
+        if len(global_inputs) > 0:
+            global_attr = self.global_function(global_inputs)
+        return global_attr
+
+
+    @tf.function
+    def eval_tensor_dict(self,d):
+        """
+        For better performance this uses a dictionary of all the necessary tensors
+        rather than a GraphTuple. A graph tuple is easilly transformed to a dictionary 
+        of tensors by `_graphtuple_to_tensor_dict` function. 
+
+        `d` is an ordered dictionary containing the following:
+          'edges','nodes','senders','receivers','n_edges','n_nodes','global_attr','_global_reps_for_edges','_global_reps_for_nodes'
+
+        """
+        d_ = d.copy() # Not sure if this harms performance. 
+        new_edges = self.edge_block(**d_)
+        d_['edges'] = new_edges
+        new_nodes = self.node_block(**d_)
+        d_['nodes'] = new_nodes
+        new_global  = self.global_block(**d_)
+        d_['global_attr'] = new_global
+        return d_
+
+
 
     def graph_eval(self, graph : Graph, eval_mode = "batched", **kwargs):
         # Evaluate the full GraphNet step: ("naive" implementations - used for testing)
@@ -402,10 +537,14 @@ class GraphNet:
         batch_size             = graph.nodes[0].shape[0]; # This will be related to the input graph tuple.
 
         edge_input_size = self.edge_input_size ; # This relates to the graphnet being evaluated.
+        if self.edge_function is not None:
+            if not isinstance(self.edge_function,tf.keras.Model):
+                raise Exception(" The 'safe' evaluation mode works for tf.keras.Model objects. Either wrap your function in a keras model or implement it in keras.")
+            edge_message_size = self.edge_function.output.shape[-1]
 
         # For GraphIndependent there are actualy no messages to be passed... 
         # I made a vector of zeros to treat 
-        edge_to_node_agg_dummy = np.zeros([batch_size, edge_input_size]);
+        edge_to_node_agg_dummy = np.zeros([batch_size, edge_message_size]);
 
         # Compute the edge-aggregated messages:
         
@@ -425,7 +564,12 @@ class GraphNet:
                 node_attr_tensor = self.node_function([n.node_attr_tensor])
                 n.set_tensor(node_attr_tensor)
             else:
-                node_attr_tensor = self.node_function([edge_to_node_agg, n.node_attr_tensor])
+                node_attr_tensor = self.node_function(
+                        {
+                            'node_state' : n.node_attr_tensor, 
+                            'edge_state_agg' : edge_to_node_agg
+                        }) # TODO: Change that to infer inputs from function names like the GraphTuple method.
+                                                                                              #       Also treat "globals" with this method (currently un-treated)
                 n.set_tensor(node_attr_tensor)
 
         if return_messages:
@@ -482,7 +626,7 @@ class GraphNet:
         # 
         # 
         assert(isinstance(graph, Graph))
-        print("WARNING: batched-graph evaluation, which works well only for graphs of same connectivity, is to be completely removed in the future. It is also not well covered from tests.")
+        print("WARNING: 'batched' graph evaluation, which works well only for graphs of same connectivity, is to be completely removed in the future. It is also not well covered from tests.")
 
         self.eval_edge_functions_batched(graph)
 
@@ -721,7 +865,7 @@ def make_mlp(units, input_tensor_list , output_shape, activation = "relu", **kwa
     keep a specific ordering for the inputs.
     """
     if len(input_tensor_list) > 1:
-        edge_function_input = keras.layers.concatenate(input_tensor_list);
+        edge_function_input = keras.layers.concatenate(input_tensor_list, axis = 1);
     else:
         assert(isinstance(input_tensor_list,list))
         edge_function_input = input_tensor_list[0] #essentially a list of a single tensor.
@@ -753,11 +897,14 @@ def make_mlp(units, input_tensor_list , output_shape, activation = "relu", **kwa
         y = dense_maker.make(output_shape[0], activation = activation)(y)
     else:
         #y = tf.keras.layers.LayerNormalization()(y)
-        print(output_shape)
         y = dense_maker.make(output_shape[0])(y)
         
+    if 'model_name' in kwargs.keys():
+        name= kwargs['model_name']
+    else:
+        name = None
 
-    return tf.keras.Model(inputs = input_tensor_list, outputs = y)
+    return tf.keras.Model(inputs = input_tensor_list, outputs = y, name = name)
 
 
 def make_node_mlp(units,
@@ -768,26 +915,32 @@ def make_node_mlp(units,
         use_global_input = False,
         use_edge_state_agg_input = True,
         graph_indep = False,
+        use_node_state_input = True,
         activation = "relu", **kwargs):
 
     if use_edge_state_agg_input and graph_indep:
-        Exception("Requested a GraphIndep graphnet node function but speciffied use of node input! This is inconsistent.")
+        raise Exception("Requested a GraphIndep graphnet node function but speciffied use of node input! This is inconsistent.")
+    if use_global_input and graph_indep:
+        raise Exception("Requested a GraphIndep graphnet node function but speciffied use of global input! This is inconsistent.")
 
 
-    node_state_in = Input(shape = node_state_input_shape, name = NodeInput.NODE_STATE.value);
+    all_inputs = [];
+    if use_node_state_input:
+        node_state_in = Input(shape = node_state_input_shape, name = NodeInput.NODE_STATE.value);
+        all_inputs.append(node_state_in)
+
+    if use_edge_state_agg_input:
+        agg_edge_state_in = Input(shape = edge_message_input_shape, name =  NodeInput.EDGE_AGG_STATE.value);
+        all_inputs.append(agg_edge_state_in)
+
+    if use_global_input:
+        global_state_in = Input(shape = global_state_input_shape , name = NodeInput.GLOBAL_STATE.value)
+        all_inputs.append(global_state_in)
     
     with tf.name_scope("node_fn") as scope:
-        if graph_indep:
-            return make_mlp(units, [node_state_in], node_emb_size, activation = activation, **kwargs)
+        kwargs['model_name'] = scope + 'model'
+        return make_mlp(units, all_inputs , node_emb_size, activation = activation, **kwargs)
 
-        if use_edge_state_agg_input and use_global_input == False:
-            agg_edge_state_in = Input(shape = edge_message_input_shape, name =  NodeInput.EDGE_AGG_STATE.value);
-            return make_mlp(units, [agg_edge_state_in, node_state_in],node_emb_size, activation = activation, **kwargs)
-
-        if use_edge_state_agg_input and use_global_input:
-            agg_edge_state_in = Input(shape = edge_message_input_shape, name =  NodeInput.EDGE_AGG_STATE.value);
-            global_state_in = Input(shape = global_state_input_shape , name = NodeInput.GLOBAL_STATE.value)
-            return make_mlp(units, [agg_edge_state_in, node_state_in, global_state_in],node_emb_size, activation = activation, **kwargs)
 
 def make_global_mlp(units, global_in_size = None,
         global_emb_size = None,
@@ -814,9 +967,10 @@ def make_global_mlp(units, global_in_size = None,
         if (edge_in_size is not None):
             str_msg +=  '`edge_in_size` [%i]'%edge_in_size
         raise Exception("You have defined shapes for %s and a graph indep. MLP. This is not allowed (check the GN factory method for errors)."%str_msg)
-
-
-
+    
+    if graph_indep:
+        if (global_in_size is None):
+            raise Exception("You requested a graph independent global block but the block does not have a global input shape! If you would like to create a graph-to-global block with no global inputs but global outputs, you need to set `graph_indep` to False.")
 
     global_inputs_list = [];
     if use_global_state_input : 
@@ -834,8 +988,9 @@ def make_global_mlp(units, global_in_size = None,
         edge_agg_state = Input(shape = edge_in_size, name = GlobalInput.EDGE_AGG_STATE.value)
         global_inputs_list.append(edge_agg_state)
 
-    with tf.name_scope("global_gn") as scope:
-        print(global_inputs_list, edge_in_size)
+    with tf.name_scope("glob_fn") as scope:
+        kwargs['model_name'] = scope + 'model'
+        #print("scope: %s, global_emb_size : %i"%(scope,global_emb_size[0]))
         return make_mlp(units, global_inputs_list , global_emb_size, activation = activation, **kwargs)
 
 
@@ -877,7 +1032,8 @@ def make_edge_mlp(units,
                 shape = global_to_edge_state_size, name = EdgeInput.GLOBAL_STATE.value);
         tensor_in_list.append(global_state_in)
 
-    with tf.name_scope("edge_fn"):
+    with tf.name_scope("edge_fn") as scope:
+        kwargs['model_name'] = scope + 'model'
         if graph_indep:
             try:
                 assert(use_sender_out_state is False)
@@ -985,9 +1141,10 @@ def make_mlp_graphnet_functions(units,
         node_to_global_aggr_fn = None,
         edge_to_global_aggr_fn = None,
         activation = "relu", 
-        activate_last_layer = False):
+        activate_last_layer = False,
+        **kwargs):
     """
-    Make the 3 functions that define the graph (no Nodes to Global and Edges to Global)
+    Make the 3 functions that completely define the GraphNet
     * If `edge_input_size' and `edge_output_size' are not defined (None) 
       It is assumed that all inputs and all outputs are the same shape for nodes and edges.
 
@@ -1106,7 +1263,7 @@ def make_mlp_graphnet_functions(units,
     node_mlp_args.update({"activation" : activation}) 
     node_mlp_args.update({"activate_last_layer":activate_last_layer})
 
-    node_mlp = make_node_mlp(units, **node_mlp_args)
+    node_mlp = make_node_mlp(units, **node_mlp_args, **kwargs)
 
     ################ Global function creation
 
@@ -1133,18 +1290,21 @@ def make_mlp_graphnet_functions(units,
         global_mlp_params.update({'node_in_size' : (node_to_global_message_size,)}) #-#
         global_mlp_params.update({'edge_in_size' : (edge_to_global_message_size,)}) #-#
 
-    if not graph_indep and use_global_input:
+    if not graph_indep:
         global_mlp_params.update({'use_node_agg_input'  : True})
         global_mlp_params.update({'use_edge_agg_input'  : True})
+    
 
     global_mlp_params.update({'use_global_state_input': use_global_input})
     global_mlp_params.update({"activate_last_layer":activate_last_layer})
+    global_mlp_params.update({"graph_indep" : graph_indep})
     
     if create_global_function:
         assert(global_output_size is not None)
         if use_global_input: # 
             assert(global_input_size is not None) # The case where the GT has a global. It is allowed to be None when the global is ignored for the global MLP computation.
-        global_mlp = make_global_mlp(units,**global_mlp_params) 
+        with tf.name_scope("global_mlp") as scope:
+            global_mlp = make_global_mlp(units,**global_mlp_params, **kwargs) 
     else:
         global_mlp = None
     
@@ -1155,4 +1315,128 @@ def make_mlp_graphnet_functions(units,
             'node_to_global_aggregation_function' : node_to_global_agg, #<- the constructor for GNs does not support different aggs. for edges yet.
             'graph_independent' : graph_indep,
             'use_global_input' : use_global_input} # Can be passed directly  to the GraphNet construction with **kwargs
+
+def make_graph_to_graph_and_global_functions(units,
+                                            node_or_core_input_size,
+                                            global_output_size,
+                                            node_or_core_output_size = None, 
+                                            edge_output_size = None, 
+                                            edge_input_size = None,
+                                            **kwargs):
+    """
+    A wrapper to a more general function factory.
+    The constructed GN has 2-layer MLPs with the specified activation 
+    and a "units" parameter (same for all MLPs).
+
+    This does not correspond to a standard GNN architecture, it is a "full" 
+    GN without a global input (less wasteful than defining a "zero" global input)
+
+    Usage:
+
+    >  units = 32
+    >  input_state_size = 16
+    >  output_state_size = 8
+    >  gn_ = GraphNet(**make_global_to_graph_and_global_functions(units, input_state_size, output_state_size) #<< this returns a GN ready for application.
+
+    The constructed block does not use the "global" input of the input 
+    GraphTuple but returns a GraphTuple that contains a global variable
+    which is also processed by an internal MLP.
+    Parameters:
+       
+      units              : how wide are the networks going to be (by default all networks are 2-layer relu networks). 
+      node_input_size    : the feature dim. of the input graph nodes (or default size for all - except global)
+      node_output_size   : the output size of the nodes (used also for edges if un-speciffied)
+      global_output_size : the output size of the global variable (in the GraphTuple.global_attr field after computation)
+
+      for the rest of the keyword arguments see `tf_gnns.graphnet_utils.make_mlp_graphnet_functions`
+
+    """
+    if node_or_core_output_size is None:
+        node_or_core_output_size = global_output_size
+
+    if edge_output_size is None:
+        edge_output_size = global_output_size
+
+    if edge_input_size is None:
+        edge_input_size  = node_or_core_input_size
+
+    if global_output_size is None:
+        global_output_size = node_or_core_output_size 
+
+    assert(np.all([k not in ['graph_indep','create_global_function','use_global_input'] for k in kwargs.keys()]))
+    return make_mlp_graphnet_functions(units,
+                                       node_or_core_input_size, 
+                                       node_or_core_output_size, 
+                                       use_global_input = False,
+                                       edge_input_size = edge_input_size,
+                                       edge_output_size = edge_output_size,
+                                       create_global_function=True,
+                                       global_output_size=global_output_size,
+                                       use_global_to_edge = False, # <- refers to the global input (that is un-used)
+                                       use_global_to_node = False, # <-     >>   >>  >> 
+                                       graph_indep=False,
+                                       **kwargs)
+
+def make_full_graphnet_functions(units,
+        node_or_core_input_size, 
+        node_or_core_output_size = None, 
+        edge_input_size = None, 
+        edge_output_size = None, 
+        global_input_size = None, 
+        global_output_size = None, 
+        **kwargs):
+    """
+    A wrapper that creates the functions that are needed for a full GN block. 
+    Takes care of some flags that control a more general factory method for avoiding clutter.
+    Usage:
+      gn_core = GraphNet(**make_full_graphnet_functions(15, 20))
+
+    * If only "node_or_core_input_size" is defined, the rest of the inputs are assumed the same.
+    * If only "node_or_core_input_size" and "node_output_size" are defined,  then all corresponding input and output sizes are 
+      the same.
+
+    Parameters:
+      units: the width of the created MLPs
+      node_or_core_input_size : the input shape of the node MLP (or the input size of global and edge MLPs if no other input is defined).
+      node_or_core_output_size        : the output shape of the node MLP (or the output sizes of global and edge MLPs if no other inputs are defined).
+      edge_input_size         : [None] the edge state input size
+      edge_output_size        : [None] the edge state output size
+      global_input_size       : [None] ...
+      global_output_size      : [None] ...
+    """
+
+    if node_or_core_output_size is None:
+        node_or_core_output_size = node_or_core_input_size
+
+    if edge_input_size is None:
+        edge_input_size = node_or_core_input_size
+
+    if edge_output_size is None:
+        edge_output_size = node_or_core_output_size
+
+    if global_input_size is None:
+        global_input_size = node_or_core_input_size
+
+    if global_output_size is None:
+        global_output_size = node_or_core_output_size
+
+    if node_or_core_input_size is None:
+        raise ValueError("You should provide the GN size of the size of several of the involved states!")
+
+    # Just in case it is called from another wrapper that uses kwargs, check if the named inputs are repeated:
+    kwargs_forbidden = ['graph_indep', 'create_global_function', 'use_global_input','global_output_size', 'global_input_size','edge_input_size','edge_output_size']
+    assert(np.all([k not in kwargs_forbidden for k in kwargs.keys()]))
+    return make_mlp_graphnet_functions(units, 
+                                        node_or_core_input_size, 
+                                        node_or_core_output_size, 
+                                        edge_input_size = edge_input_size,
+                                        global_output_size = global_output_size,
+                                        global_input_size = global_input_size,
+                                        use_global_input = True,
+                                        use_global_to_edge=True,
+                                        use_global_to_node=True,
+                                        create_global_function=True, **kwargs)
+
+
+
 

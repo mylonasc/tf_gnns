@@ -343,7 +343,15 @@ class GraphTuple:
         r = self.receivers
         n_nodes = self.n_nodes
         n_edges = g2.n_edges
-        return GraphTuple(nodes,edges,s,r,n_nodes, n_edges, global_attr = self.global_attr)
+        if self.has_global and g2.has_global:
+            new_global = self.global_attr + g2.global_attr
+            gt = GraphTuple(nodes,edges,s,r,n_nodes, n_edges, global_attr = new_global)
+            gt._global_reps_for_edges = self._global_reps_for_edges
+            gt._global_reps_for_nodes = self._global_reps_for_nodes
+        else:
+            gt = GraphTuple(nodes, edges, s,r,n_nodes, n_edges)
+
+        return gt
 
         
     def get_graph(self, graph_index):
