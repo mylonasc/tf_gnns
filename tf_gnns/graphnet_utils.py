@@ -888,9 +888,7 @@ def make_mlp(units, input_tensor_list , output_shape, activation = "relu", **kwa
 
     dense_maker = DenseMaker()
     y = dense_maker.make(units, use_bias = False)(edge_function_input)
-    y=  Dropout(rate = 0.1)(y)
     y = dense_maker.make(units, activation = activation)(y)
-    y=  Dropout(rate = 0.1)(y)
     y = dense_maker.make(units, activation = activation)(y)
 
     if act_last_layer:
@@ -1094,6 +1092,27 @@ def make_mean_max_agg(input_size):
 
     return m_basic, tf_function_agg
 
+def make_mean_max_min_agg(input_size):
+    """
+    A mean, a max and a min aggregator appended together. This was is useful for some special use-cases.
+
+    Inpsired by:
+    Corso, Gabriele, et al. "Principal neighbourhood aggregation for graph nets." arXiv preprint arXiv:2004.05718 (2020).
+    """
+    x = Input(shape = input_size, name = "edge_messages")
+    v1 = tf.reduce_mean(x,0)
+    v2 = tf.reduce_max(x,0)
+    v3 = tf.reduce_min(x,0)
+    agg_out = tf.concat([v1,v2, v3],axis = -1)
+    m_basic = tf.keras.Model(inputs = x , outputs = agg_out, name = 'basic_meanmaxmin_aggregator')
+
+    def tf_function_agg(x, recv, max_seq):
+        v1,v2,v3 = tf.math.unsorted_segment_mean(x,recv,max_seq), tf.math.unsorted_segment_max(x,recv, max_seq) , tf.math.unsorted_segment_min(x, recv,max_seq)
+        agg_ss = tf.concat([v1,v2, v3], axis = -1)
+        return agg_ss
+
+    return m_basic, tf_function_agg
+
 def _aggregation_function_factory(input_shape, agg_type = 'mean'):
     """
     A factory method to create aggregators for graphNets. 
@@ -1105,6 +1124,7 @@ def _aggregation_function_factory(input_shape, agg_type = 'mean'):
       max
       min
       mean_max
+      mean_max_min
 
     todo:
     ---------------------
@@ -1119,7 +1139,8 @@ def _aggregation_function_factory(input_shape, agg_type = 'mean'):
             'sum' : lambda input_shape : make_keras_simple_agg(input_shape, 'sum'),
             'max' : lambda input_shape : make_keras_simple_agg(input_shape, 'max'),
             'min' : lambda input_shape : make_keras_simple_agg(input_shape, 'min'),
-            'mean_max' : lambda input_shape : make_mean_max_agg(input_shape) # compound aggregator (appending aggregators)
+            'mean_max' : lambda input_shape : make_mean_max_agg(input_shape), # compound aggregator (appending aggregators)
+            'mean_max_min' : lambda input_shape : make_mean_max_min_agg(input_shape),
             }
 
     aggregators = agg_type_dict[agg_type](input_shape)
@@ -1220,7 +1241,8 @@ def make_mlp_graphnet_functions(units,
                                      'max' : block_output, 
                                      'min' : block_output, 
                                      'sum' : block_output, 
-                                     'mean_max' : block_output * 2}
+                                     'mean_max' : block_output * 2,
+                                     'mean_max_min' : block_output * 3}
     ################# Edge function creation
     if message_size  == 'auto':
         edge_output_message_size = edge_output_size
