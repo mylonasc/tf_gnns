@@ -169,7 +169,10 @@ class TestGraphNet(unittest.TestCase):
 
         ## The graph-independent version:
         gi = True
-        graph_fcn = make_mlp_graphnet_functions(150, node_input_size = node_input_size, node_output_size = node_input_size, graph_indep=gi, use_edge_state_agg_input = False)
+        graph_fcn = make_mlp_graphnet_functions(150, 
+                node_input_size = node_input_size,
+                node_output_size = node_input_size, 
+                graph_indep=gi, use_edge_state_agg_input = False)
         graph_fcn.update({"graph_independent" : gi})
         gn = GraphNet(**graph_fcn )
         res1 = gn.graph_eval(g1.copy(),eval_mode = "safe")
@@ -423,9 +426,8 @@ class TestTraced_eval(unittest.TestCase):
         gt_out_1 = gn_gi.graph_tuple_eval(gt.copy())
         gt_out = gn_core.graph_tuple_eval(gt_out_1)
 
-        from tf_gnns.graphnet_utils import _graphtuple_to_tensor_dict
 
-        tensor_dict_out = gn_gi.eval_tensor_dict(_graphtuple_to_tensor_dict(gt.copy()))
+        tensor_dict_out = gn_gi.eval_tensor_dict(gt.copy().to_tensor_dict())
         tensor_dict_out = gn_core.eval_tensor_dict(tensor_dict_out)
         edges_err = np.linalg.norm(gt_out.edges - tensor_dict_out['edges']) 
         nodes_err = np.linalg.norm(gt_out.nodes - tensor_dict_out['nodes']) 
