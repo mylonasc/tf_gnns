@@ -24,8 +24,8 @@ try:
         ACCORDION_CSS = f.read()
     with open(os.path.join(html_asset_path,'accordion.js')) as f:
         ACCORDION_JS  = f.read()
-except e:
-    print("Some assets failed to load!")
+except:
+    print("Some assets failed to load!\nSome pretty printing functionality may be unavailable.")
     
 
 def _instantiate_gamma(t, NParams_ = 1):
