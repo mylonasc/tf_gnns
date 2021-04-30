@@ -136,6 +136,7 @@ class GraphNet:
 
 
         self.edge_function             = edge_function
+        self.edge_input_dict, self.node_input_dict, self.global_input_dict = [{}, {} , {}]
         if self.edge_function is not None:
             self.scan_edge_function() # checking for consistency among some inputs and keeping track of the inputs to the edge function.
 
@@ -218,7 +219,7 @@ class GraphNet:
             Exception("The edge function states should contain any of the following: %s. The entered edge-function inputs were: %s Cannot create GraphNet with this edge function!"%(ef_possible_inputs_str,ef_inputs))
 
         # A dictionary having a correspondence of possible and available edge_inputs:
-        self.edge_input_dict= {}
+        
         for ef in EDGE_FUNCTION_INPUTS:
             for f in function_input_names:
                 if ef in f:
@@ -243,7 +244,6 @@ class GraphNet:
             self.uses_receiver_node_state = True
 
     def scan_global_function(self):
-        self.global_input_dict = {}
         if self.global_function is not None:
             global_fn_inputs = [i.name for i in self.global_function.inputs]
             possible_global_inputs = ['node_state_agg','edge_state_agg','global_state']
@@ -260,7 +260,6 @@ class GraphNet:
         node_fn_inputs = [i.name for i in self.node_function.inputs]
 
         possible_node_inputs = ['node_state','edge_state_agg','global_state']
-        self.node_input_dict = {}
         for nn in possible_node_inputs:
             for n_ in node_fn_inputs:
                 if nn in n_:
