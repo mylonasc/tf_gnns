@@ -2,7 +2,6 @@
 import os
 from enum import Enum
 import inspect
-import code
 from collections import OrderedDict
 
 # tensorflow imports:
@@ -18,31 +17,45 @@ import numpy as np
 
 from .datastructures import Graph
 
+# Loading some self-assets:
+try:
+    html_asset_path = os.environ['TFGNNS_HTML_ASSETS']
+    with open(os.path.join(html_asset_path , 'pretty_print_accordion.css'),'r') as f:
+        ACCORDION_CSS = f.read()
+    with open(os.path.join(html_asset_path,'accordion.js')) as f:
+        ACCORDION_JS  = f.read()
+except e:
+    print("Some assets failed to load!")
+    
+
 def _instantiate_gamma(t, NParams_ = 1):
     return tfd.Gamma(concentration = t[...,0:NParams_], rate = t[...,NParams_:2*NParams_])
 
-
-def _graphtuple_to_tensor_dict(gt_):
+def _split_tensor_dict_to_repar(td, nlatent_nodes_or_all, nlatent_edges = None, nlatent_global = None):
     """
-    Transform a GT to a dictionary.
-    Used for employing the traceable graph_dict evaluation function.
-    """
-    def _tf_constant_or_none(v):
-        if v is None:
-            return None
-        else:
-            return tf.constant(v)
+    splits a tensor dictionary that corresponds to a graphTuple to mean and std parametrization. 
+    if only `nlatent_nodes_or_all` is defined, then all dimensions are the same.
 
-    return {'edges' : _tf_constant_or_none(gt_.edges),
-            'nodes' : _tf_constant_or_none(gt_.nodes),
-            'senders' : _tf_constant_or_none(gt_.senders),
-            'receivers' :_tf_constant_or_none(gt_.receivers),
-            'n_edges' : _tf_constant_or_none(gt_.n_edges),
-            'n_nodes' : _tf_constant_or_none(gt_.n_nodes),
-            'n_graphs' : _tf_constant_or_none(gt_.n_graphs),
-            'global_attr' : _tf_constant_or_none(gt_.global_attr),
-           '_global_reps_for_edges' : _tf_constant_or_none(gt_._global_reps_for_edges),
-           '_global_reps_for_nodes' : _tf_constant_or_none(gt_._global_reps_for_nodes)}
+    """
+    nlatent_nodes = nlatent_nodes_or_all;
+    if nlatent_edges is None:
+        nlatent_edges = nlatent_nodes_or_all
+
+    if nlatent_global is None:
+        nlatent_global = nlatent_nodes_or_all
+
+    td_mean = td.copy()
+    td_std  = td.copy()
+
+    td_mean['edges'] = td['edges'][:,:nlatent_edges]
+    td_mean['nodes'] = td['nodes'][:,:nlatent_nodes]
+    td_mean['global_attr'] = td['global_attr'][:,:nlatent_global]
+
+    td_std['edges'] = td['edges'][:,nlatent_edges:]
+    td_std['nodes'] = td['nodes'][:,nlatent_nodes:]
+    td_std['global_attr'] = td['global_attr'][:,nlatent_global:]
+    return td_mean, td_std
+
 
 
 
@@ -102,16 +115,15 @@ class GraphNet:
                                         NOTE: For simplicity the same aggregator is 
                                         used for the edges-to-nodes aggregation and edges-to-global. 
 
-            node_aggregation_function : the node aggregator. This aggregates all nodes to provide
+            node_to_global_aggregation_function : the node aggregator. This aggregates all nodes to provide
                                         an input to the global MLP.
 
-            edge_to_global_agg_fn     : function to use for aggregating edges to global.
-            node_to_global_agg_fn     : function to use for agg. nodes to global.
             use_global_input          : whether to use the global input or not
 
             name                      : a string used for the name_scopes of the GNN.
 
         """
+        self.edge_aggregation_function , self.edge_aggregation_function_seg = [None, None]
         self.is_graph_independent = graph_independent # should come first.
         self.name = name
 
@@ -124,19 +136,25 @@ class GraphNet:
 
 
         self.edge_function             = edge_function
-        self.scan_edge_function() # checking for consistency among some inputs and keeping track of the inputs to the edge function.
+        if self.edge_function is not None:
+            self.scan_edge_function() # checking for consistency among some inputs and keeping track of the inputs to the edge function.
 
         self.node_function             = node_function
-        self.scan_node_function() #checking for consistency among some inputs and keeping track of the inputs to the node function.
+        if self.node_function is not None:
+            self.scan_node_function() #checking for consistency among some inputs and keeping track of the inputs to the node function.
 
         self.global_function           = global_function
         self.node_to_global_aggregation_function  = node_to_global_aggregation_function
-        self.scan_global_function()
+        if self.global_function is not None:
+            self.scan_global_function()
 
         if graph_independent and edge_aggregation_function is not None:
             Exception("Edge-aggregation functions do not make sense in graph-independent blocks! Check your model creation code for errors.")
 
-        self.has_seg_aggregator = False
+        self.has_seg_aggregator_edge_to_global = False
+        self.has_seg_aggregator_edge_to_node   = False
+        self.has_seg_aggregator_node_to_global = False
+
         if edge_aggregation_function is not None:
             try:
                 len_ea = len(edge_aggregation_function)
@@ -144,14 +162,27 @@ class GraphNet:
                 len_ea = 1
 
             if len_ea > 1:
-                # Has segment sum version:
+                # Has segment reduction version:
                 self.edge_aggregation_function_seg = edge_aggregation_function[1]
-                self.has_seg_aggregator = True
+                self.has_seg_aggregator_node_to_edge = True
+                self.has_seg_aggregator_edge_to_global = True
                 self.edge_aggregation_function = edge_aggregation_function[0]
             else:
                 self.edge_aggregation_function = edge_aggregation_function        
 
             #self.scan_edge_to_node_aggregation_function(node_function)
+
+        if node_to_global_aggregation_function is not None:
+            try:
+                len_ea = len(node_to_global_aggregation_function)
+                self.has_seg_aggregator_node_to_global = True
+            except:
+                None
+
+
+        
+        #self.has_seg_aggregator_node_to_edge = False
+        #self.has_seg_aggregator_node_to_global = False
 
         
         if self.edge_function is not None: 
@@ -275,10 +306,58 @@ class GraphNet:
         
         print_summary_if_keras_model(self.node_function,'Node function')
         print_summary_if_keras_model(self.edge_function,'Edge function')
+        print_summary_if_keras_model(self.global_function,'Global function')
         if not self.is_graph_independent:
             print_summary_if_keras_model(self.edge_aggregation_function,'Edge Agg. function')
         else:
             print("* No aggregation function - Graph-independent network.")
+
+    def _repr_html_(self):
+        s = ''
+        s +=  '<div>'
+        #s += '<html>'
+        fn_string = ''
+        if self.is_graph_independent:
+            fn_string = 'Graph Indep. '
+
+        s += ''
+        s += '<style>' + ACCORDION_CSS+ '</style>'
+        
+
+        def _get_html_repr_keras_fn(self_fn, which_fn):
+            ss  = ''
+            ss += '<button class="accordion tfgnnviz">%s function'%which_fn
+            _fn_header_string = "(" + ", ".join([i.name + ':'+ str(i.shape[-1]) for i in self_fn.inputs]) +") -> %i"%self_fn.output.shape[-1]
+            ss += '' + _fn_header_string+'</button>\n'
+            stringlist = []
+            self_fn.summary(print_fn=lambda x: stringlist.append(x))
+            _fn_string = '<pre>'+"\n".join([ li  for li in stringlist]) + '</pre>\n'
+
+            ss += '<div class="panel">\n'
+            ss +=  _fn_string
+            ss += '</div>\n'
+            return ss
+
+        details = ''
+        if self.node_function is not None and isinstance(self.node_function,tf.keras.Model):
+            details += _get_html_repr_keras_fn(self.node_function,'Node')
+
+        if self.edge_function is not None and isinstance(self.edge_function, tf.keras.Model):
+            details += _get_html_repr_keras_fn(self.edge_function, 'Edge')
+
+        if self.global_function is not None and isinstance(self.global_function, tf.keras.Model):
+            details += _get_html_repr_keras_fn(self.global_function, 'Global')
+
+        hdr_string = '<h4>%sGNN function (@%s)</h4>'%(fn_string , str(id(self)))
+        s += '    <div> %s </div>'%hdr_string
+        s += '      %s'%details
+        #s += '</html>'
+
+        s += '<script>' + ACCORDION_JS + '</script>'
+
+
+        return s
+
         
     def _weights(self):
         """
@@ -288,12 +367,14 @@ class GraphNet:
           node_function, edge_function, edge_aggregation_function
 
         """
-        all_weights = [ *self.edge_function.weights, *self.node_function.weights]
+        all_weights = []
+        if self.edge_function is not None:
+            all_weights.extend(self.edge_function.weights)
+        if self.node_function is not None:
+            all_weights.extend(self.node_function.weights)
         if self.global_function is not None:
             all_weights.extend(self.global_function.weights)
 
-        #if self.node_to_prob_function is not None:
-        #    all_weights.extend(self.node_to_prob_function.weights)
         
         if not self.is_graph_independent:
             if (self.edge_aggregation_function is not None and not self.is_graph_independent) and not isinstance(self.edge_aggregation_function, type(tf.reduce_mean)):
@@ -352,7 +433,7 @@ class GraphNet:
         # 2) Aggregate the messages (unsorted segment sums etc):
         node_inputs = {}
         if NodeInput.EDGE_AGG_STATE.value in self.node_input_dict.keys():
-            if self.has_seg_aggregator:
+            if self.has_seg_aggregator_node_to_edge:
                 max_seq = int(tf.reduce_sum(tf_graph_tuple.n_nodes))
                 edge_to_nodes_messages = self.edge_aggregation_function_seg(tf_graph_tuple.edges, tf_graph_tuple.receivers, max_seq)
             else:
@@ -377,7 +458,7 @@ class GraphNet:
 
         global_inputs = {}
         if (GlobalInput.EDGE_AGG_STATE.value in self.global_input_dict.keys()):
-            if self.has_seg_aggregator: #<- same aggregator for edges-to-nodes and edges-to-global.
+            if self.has_seg_aggregator_node_to_edge: #<- same aggregator for edges-to-nodes and edges-to-global.
                 edges_to_global_messages = self.edge_aggregation_function_seg(
                         tf_graph_tuple.edges, tf_graph_tuple._global_reps_for_edges, tf_graph_tuple.n_graphs)
                 global_inputs.update({GlobalInput.EDGE_AGG_STATE.value : edges_to_global_messages})
@@ -385,7 +466,7 @@ class GraphNet:
                 raise Exception("Not Implemented!")
 
         if (GlobalInput.NODE_AGG_STATE.value in self.global_input_dict.keys()):
-            if self.has_seg_aggregator:
+            if self.has_seg_aggregator_node_to_global:
                 nodes_to_global_messages = self.node_to_global_aggregation_function[1](
                     tf_graph_tuple.nodes, tf_graph_tuple._global_reps_for_nodes, tf_graph_tuple.n_graphs)
                 global_inputs.update({GlobalInput.NODE_AGG_STATE.value : nodes_to_global_messages})
@@ -441,7 +522,7 @@ class GraphNet:
             node_inputs.update({NodeInput.GLOBAL_STATE.value : tf.gather(global_attr,node_reps)})
 
         if NodeInput.EDGE_AGG_STATE.value in self.node_input_dict.keys():
-            if self.has_seg_aggregator:
+            if self.has_seg_aggregator_edge_to_global:
                 max_seq = int(tf.reduce_sum(n_nodes))
                 edge_to_nodes_messages = self.edge_aggregation_function_seg(edges, receivers, max_seq)
             else:
@@ -458,17 +539,18 @@ class GraphNet:
                      _global_reps_for_nodes = None, n_graphs = None):
         
         global_inputs = {}
-        n_graphs = len(n_edges)
+        if n_graphs is None:
+            n_graphs = len(n_edges)
+
         if (GlobalInput.EDGE_AGG_STATE.value in self.global_input_dict.keys()):
-            if self.has_seg_aggregator: #<- same aggregator for edges-to-nodes and edges-to-global.
+            if self.has_seg_aggregator_edge_to_global: #<- same aggregator for edges-to-nodes and edges-to-global.
                 edges_to_global_messages = self.edge_aggregation_function_seg(
                         edges, _global_reps_for_edges, n_graphs)
                 global_inputs.update({GlobalInput.EDGE_AGG_STATE.value : edges_to_global_messages})
             else:
                 raise Exception("Not Implemented!")
-
         if (GlobalInput.NODE_AGG_STATE.value in self.global_input_dict.keys()):
-            if self.has_seg_aggregator:
+            if self.has_seg_aggregator_node_to_global:
                 nodes_to_global_messages = self.node_to_global_aggregation_function[1](
                     nodes, _global_reps_for_nodes, n_graphs)
                 global_inputs.update({GlobalInput.NODE_AGG_STATE.value : nodes_to_global_messages})
@@ -493,12 +575,15 @@ class GraphNet:
 
         """
         d_ = d.copy() # Not sure if this harms performance. 
-        new_edges = self.edge_block(**d_)
-        d_['edges'] = new_edges
-        new_nodes = self.node_block(**d_)
-        d_['nodes'] = new_nodes
-        new_global  = self.global_block(**d_)
-        d_['global_attr'] = new_global
+        if self.edge_function is not None:
+            new_edges = self.edge_block(**d_)
+            d_['edges'] = new_edges
+        if self.node_function is not None:
+            new_nodes = self.node_block(**d_)
+            d_['nodes'] = new_nodes
+        if self.global_function is not None:
+            new_global  = self.global_block(**d_)
+            d_['global_attr'] = new_global
         return d_
 
 
@@ -873,6 +958,8 @@ def make_mlp(units, input_tensor_list , output_shape, activation = "relu", **kwa
 
     if 'activate_last_layer' in kwargs.keys():
         act_last_layer = kwargs['activate_last_layer']
+    else:
+        act_last_layer = False
     
     
     # A workaround to keep track of created weights easily:
@@ -978,6 +1065,7 @@ def make_global_mlp(units, global_in_size = None,
 
         global_state_in = Input(shape = global_in_size, name = GlobalInput.GLOBAL_STATE.value)
         global_inputs_list.append(global_state_in)
+        
 
     if use_node_agg_input:
         node_agg_state = Input(shape = node_in_size, name = GlobalInput.NODE_AGG_STATE.value)
@@ -1113,6 +1201,28 @@ def make_mean_max_min_agg(input_size):
 
     return m_basic, tf_function_agg
 
+def make_mean_max_min_sum_agg(input_size):
+    """
+    A mean, a max and a min aggregator appended together. This was is useful for some special use-cases.
+
+    Inpsired by:
+    Corso, Gabriele, et al. "Principal neighbourhood aggregation for graph nets." arXiv preprint arXiv:2004.05718 (2020).
+    """
+    x = Input(shape = input_size, name = "edge_messages")
+    v1 = tf.reduce_mean(x,0)
+    v2 = tf.reduce_max(x,0)
+    v3 = tf.reduce_min(x,0)
+    v4 = tf.reduce_sum(x,0)
+    agg_out = tf.concat([v1,v2, v3, v4],axis = -1)
+    m_basic = tf.keras.Model(inputs = x , outputs = agg_out, name = 'basic_meanmaxminsum_aggregator')
+
+    def tf_function_agg(x, recv, max_seq):
+        v1,v2,v3,v4 = tf.math.unsorted_segment_mean(x,recv,max_seq), tf.math.unsorted_segment_max(x,recv, max_seq) , tf.math.unsorted_segment_min(x, recv,max_seq), tf.math.unsorted_segment_sum(x, recv, max_seq)
+        agg_ss = tf.concat([v1,v2, v3, v4], axis = -1)
+        return agg_ss
+
+    return m_basic, tf_function_agg
+
 def _aggregation_function_factory(input_shape, agg_type = 'mean'):
     """
     A factory method to create aggregators for graphNets. 
@@ -1141,6 +1251,7 @@ def _aggregation_function_factory(input_shape, agg_type = 'mean'):
             'min' : lambda input_shape : make_keras_simple_agg(input_shape, 'min'),
             'mean_max' : lambda input_shape : make_mean_max_agg(input_shape), # compound aggregator (appending aggregators)
             'mean_max_min' : lambda input_shape : make_mean_max_min_agg(input_shape),
+            'mean_max_min_sum' : lambda input_shape : make_mean_max_min_sum_agg(input_shape)
             }
 
     aggregators = agg_type_dict[agg_type](input_shape)
@@ -1158,6 +1269,7 @@ def make_mlp_graphnet_functions(units,
         use_global_input = False,
         use_global_to_edge = False, #<- if edge mlp takes has a global input.
         use_global_to_node = False, #<- if node mlp takes global input (input GraphTuple should have a globa field.
+        node_mlp_use_edge_state_agg_input = True,
         graph_indep = False, message_size = 'auto', 
         aggregation_function = 'mean', 
         node_to_global_aggr_fn = None,
@@ -1242,9 +1354,10 @@ def make_mlp_graphnet_functions(units,
                                      'min' : block_output, 
                                      'sum' : block_output, 
                                      'mean_max' : block_output * 2,
-                                     'mean_max_min' : block_output * 3}
+                                     'mean_max_min' : block_output * 3,
+                                     'mean_max_min_sum' : block_output * 4}
     ################# Edge function creation
-    if message_size  == 'auto':
+    if message_size  == 'auto' and not graph_indep:
         edge_output_message_size = edge_output_size
         node_input_message_size  = agg_to_message(edge_output_size)[aggregation_function]
         node_to_global_message_size = agg_to_message(node_output_size)[aggregation_function]
@@ -1254,6 +1367,7 @@ def make_mlp_graphnet_functions(units,
         node_input_message_size     = edge_output_size
         node_to_global_message_size = node_output_size
         edge_to_global_message_size = edge_output_size
+
 
     edge_mlp_args = {"edge_state_input_shape" : (edge_input_size,),
             "sender_node_state_output_shape" : (node_input,), # this has to be compatible with the output of the aggregator.
@@ -1275,12 +1389,18 @@ def make_mlp_graphnet_functions(units,
         agg_fcn  = _aggregation_function_factory(input_shape, aggregation_function) # First dimension - incoming edge index
     else:
         agg_fcn = None
+        node_mlp_use_edge_state_agg_input = False
+        if 'use_state_agg_input' in kwargs:
+            if kwargs['use_edge_state_agg_input']:
+                raise ValueError("You tried to construct a node function which accepts aggregated edge messages (with use_edge_state_agg_input == True) and at the same time you defined that the network you are constructing is Graph independent! This is inconsistent - check your factory method options!")
 
     node_mlp_args = {"edge_message_input_shape": (node_input_message_size,),
             "node_state_input_shape" : (node_input,),
             "node_emb_size" : (node_output_size,)}
     node_mlp_args.update({"graph_indep" : graph_indep})
     node_mlp_args.update({"global_state_input_shape" : global_to_node_input_size})
+    if 'use_edge_state_agg_input'  not in kwargs.keys():
+        node_mlp_args.update({"use_edge_state_agg_input" : node_mlp_use_edge_state_agg_input})
 
     node_mlp_args.update({"use_global_input" : use_global_to_node}) #<- this is from the input global! (refer to the GraphNets paper - that refers to the part that "global" goes to nodes and edges in the block.)
     node_mlp_args.update({"activation" : activation}) 
@@ -1316,6 +1436,9 @@ def make_mlp_graphnet_functions(units,
     if not graph_indep:
         global_mlp_params.update({'use_node_agg_input'  : True})
         global_mlp_params.update({'use_edge_agg_input'  : True})
+    else:
+        global_mlp_params.update({'use_node_agg_input' : False})
+        global_mlp_params.update({'use_edge_agg_input' : False})
     
 
     global_mlp_params.update({'use_global_state_input': use_global_input})
@@ -1400,6 +1523,73 @@ def make_graph_to_graph_and_global_functions(units,
                                        graph_indep=False,
                                        **kwargs)
 
+
+def make_graph_indep_graphnet_functions(units, 
+        node_or_core_input_size,
+        node_or_core_output_size = None,
+        edge_input_size = None,
+        edge_output_size = None,
+        global_input_size = None,
+        global_output_size = None,
+        **kwargs):
+
+    """
+    A wrapper that creates the functions that are needed for a graph-independent GN block. 
+    Takes care of some flags that control a more general factory method for avoiding clutter.
+    Usage:
+      gn_core = GraphNet(**make_graph_indep_graphnet_functions(15, 20))
+
+    * If only "node_or_core_input_size" is defined, the rest of the inputs are assumed the same.
+    * If only "node_or_core_input_size" and "node_output_size" are defined,  then all corresponding input and output sizes are 
+      the same.
+
+    Parameters:
+      units: the width of the created MLPs
+      node_or_core_input_size : the input shape of the node MLP (or the input size of global and edge MLPs if no other input is defined).
+      node_or_core_output_size        : the output shape of the node MLP (or the output sizes of global and edge MLPs if no other inputs are defined).
+      edge_input_size         : [None] the edge state input size
+      edge_output_size        : [None] the edge state output size
+      global_input_size       : [None] ...
+      global_output_size      : [None] ...
+    """
+
+    if node_or_core_output_size is None:
+        node_or_core_output_size = node_or_core_input_size
+
+    if edge_input_size is None:
+        edge_input_size = node_or_core_input_size
+
+    if edge_output_size is None:
+        edge_output_size = node_or_core_output_size
+
+    if global_input_size is None:
+        global_input_size = node_or_core_input_size
+
+    if global_output_size is None:
+        global_output_size = node_or_core_output_size
+
+    if node_or_core_input_size is None:
+        raise ValueError("You should provide the GN size of the size of several of the involved states!")
+
+    # Just in case it is called from another wrapper that uses kwargs, check if the named inputs are repeated:
+    kwargs_forbidden = ['graph_indep', 'create_global_function', 'use_global_input', 'use_global_to_edge','use_global_to_node']
+    assert(np.all([k not in kwargs_forbidden for k in kwargs.keys()]))
+    return make_mlp_graphnet_functions(units, 
+                                        node_or_core_input_size, 
+                                        node_or_core_output_size, 
+                                        edge_input_size = edge_input_size,
+                                        edge_output_size = edge_output_size,
+                                        global_output_size = global_output_size,
+                                        global_input_size = global_input_size,
+                                        use_global_input = True,
+                                        use_global_to_edge=False,
+                                        use_global_to_node=False,
+                                        create_global_function=True, 
+                                        graph_indep=True,
+                                        **kwargs)
+
+
+
 def make_full_graphnet_functions(units,
         node_or_core_input_size, 
         node_or_core_output_size = None, 
@@ -1453,6 +1643,7 @@ def make_full_graphnet_functions(units,
                                         node_or_core_input_size, 
                                         node_or_core_output_size, 
                                         edge_input_size = edge_input_size,
+                                        edge_output_size = edge_output_size,
                                         global_output_size = global_output_size,
                                         global_input_size = global_input_size,
                                         use_global_input = True,

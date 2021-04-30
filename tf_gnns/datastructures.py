@@ -2,6 +2,8 @@
 import numpy as np
 import tensorflow as tf
 
+
+
 def _copy_any_ds(val):
     """
     Copy semantics for different datatypes accepted.
@@ -284,6 +286,7 @@ class GraphTuple:
 
         if (_global_reps_for_edges is None ) and (_global_reps_for_nodes is None):
             self.update_reps_for_globals()
+        self.n_graphs = len(self.n_nodes)
 
 
 
@@ -296,12 +299,12 @@ class GraphTuple:
         """
         global_reps_for_edges = [] # <- used to cast the global tensor to a compatible size for the edges.
         for k, e in enumerate(self.n_edges):
-            global_reps_for_edges.extend([k]*e)
+            global_reps_for_edges.extend([k]*int(e))
         self._global_reps_for_edges = global_reps_for_edges
 
         global_reps_for_nodes = [] # <- similarly for nodes:
         for k, e in enumerate(self.n_nodes):
-            global_reps_for_nodes.extend([k]*e)
+            global_reps_for_nodes.extend([k]*int(e))
 
         self._global_reps_for_nodes = global_reps_for_nodes
 
@@ -385,5 +388,29 @@ class GraphTuple:
             global_attr = None
         return Graph(nodes, edges, global_attr = global_attr)
 
+    def to_tensor_dict(self):
+        return _graphtuple_to_tensor_dict(self)
+
+def _graphtuple_to_tensor_dict(gt_):
+    """
+    Transform a GT to a dictionary.
+    Used for employing the traceable graph_dict evaluation function.
+    """
+    def _tf_constant_or_none(v):
+        if v is None:
+            return None
+        else:
+            return tf.constant(v)
+
+    return {'edges' : _tf_constant_or_none(gt_.edges),
+            'nodes' : _tf_constant_or_none(gt_.nodes),
+            'senders' : _tf_constant_or_none(gt_.senders),
+            'receivers' :_tf_constant_or_none(gt_.receivers),
+            'n_edges' : _tf_constant_or_none(gt_.n_edges),
+            'n_nodes' : _tf_constant_or_none(gt_.n_nodes),
+            'n_graphs' : _tf_constant_or_none(gt_.n_graphs),
+            'global_attr' : _tf_constant_or_none(gt_.global_attr),
+           '_global_reps_for_edges' : _tf_constant_or_none(gt_._global_reps_for_edges),
+           '_global_reps_for_nodes' : _tf_constant_or_none(gt_._global_reps_for_nodes)}
         
 
