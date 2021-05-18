@@ -1,3 +1,25 @@
+# Copyright 2021 Charilaos K. Mylonas
+# 
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+# 
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# Notes:
+# -------
+# This code contains the main logic for the full GraphNet computation. 
+# Some ideas (and sometimes source code) were taken from
+# here: https://github.com/deepmind/graph_nets/blob/64771dff0d74ca8e77b1f1dcd5a7d26634356d61/graph_nets/
+# 
+
+
 # python imports
 import os
 from enum import Enum
@@ -16,6 +38,70 @@ tfd = tfp.distributions
 import numpy as np
 
 from .datastructures import Graph
+
+AGG_TO_MESSAGE_DICT = {
+                        'mean'             : 1, 
+                        'max'              : 1, 
+                        'min'              : 1, 
+                        'sum'              : 1, 
+                        'mean_max'         : 2,
+                        'mean_max_min'     : 3,
+                        'mean_max_min_sum' : 4}
+
+
+
+
+def _unsorted_segment_reduction_or_zero(reducer, values, indices, num_groups):
+  """Common code for unsorted_segment_{min,max}_or_zero (below)."""
+  reduced = reducer(values, indices, num_groups)
+  present_indices = tf.math.unsorted_segment_max(
+      tf.ones_like(indices, dtype=reduced.dtype), indices, num_groups)
+  present_indices = tf.clip_by_value(present_indices, 0, 1)
+  present_indices = tf.reshape(
+      present_indices, [num_groups] + [1] * (reduced.shape.ndims - 1))
+  reduced *= present_indices
+  return reduced
+
+
+def unsorted_segment_min_or_zero(values, indices, num_groups,
+                                 name="unsorted_segment_min_or_zero"):
+  """Aggregates information using elementwise min.
+  Segments with no elements are given a "min" of zero instead of the most
+  positive finite value possible (which is what `tf.math.unsorted_segment_min`
+  would do).
+  Args:
+    values: A `Tensor` of per-element features.
+    indices: A 1-D `Tensor` whose length is equal to `values`' first dimension.
+    num_groups: A `Tensor`.
+    name: (string, optional) A name for the operation.
+  Returns:
+    A `Tensor` of the same type as `values`.
+  """
+  with tf.name_scope(name):
+    return _unsorted_segment_reduction_or_zero(
+        tf.math.unsorted_segment_min, values, indices, num_groups)
+
+
+def unsorted_segment_max_or_zero(values, indices, num_groups,
+                                 name="unsorted_segment_max_or_zero"):
+  """Aggregates information using elementwise max.
+  Segments with no elements are given a "max" of zero instead of the most
+  negative finite value possible (which is what `tf.math.unsorted_segment_max`
+  would do).
+  Args:
+    values: A `Tensor` of per-element features.
+    indices: A 1-D `Tensor` whose length is equal to `values`' first dimension.
+    num_groups: A `Tensor`.
+    name: (string, optional) A name for the operation.
+  Returns:
+    A `Tensor` of the same type as `values`.
+  """
+  with tf.name_scope(name):
+    return _unsorted_segment_reduction_or_zero(
+        tf.math.unsorted_segment_max, values, indices, num_groups)
+
+
+
 
 # Loading some self-assets:
 try:
@@ -116,7 +202,7 @@ class GraphNet:
                                         used for the edges-to-nodes aggregation and edges-to-global. 
 
             node_to_global_aggregation_function : the node aggregator. This aggregates all nodes to provide
-                                        an input to the global MLP.
+                                        an input to the global MLP. Possible values:['mean','max','min', 'sum','mean_max_min']
 
             use_global_input          : whether to use the global input or not
 
@@ -517,8 +603,7 @@ class GraphNet:
             node_inputs.update({NodeInput.NODE_STATE.value : nodes})
 
         if NodeInput.GLOBAL_STATE.value in self.node_input_dict.keys():
-            node_reps = _global_reps_for_nodes
-            node_inputs.update({NodeInput.GLOBAL_STATE.value : tf.gather(global_attr,node_reps)})
+            node_inputs.update({NodeInput.GLOBAL_STATE.value : tf.gather(global_attr,_global_reps_for_nodes)})
 
         if NodeInput.EDGE_AGG_STATE.value in self.node_input_dict.keys():
             if self.has_seg_aggregator_edge_to_global:
@@ -573,7 +658,7 @@ class GraphNet:
           'edges','nodes','senders','receivers','n_edges','n_nodes','global_attr','_global_reps_for_edges','_global_reps_for_nodes'
 
         """
-        d_ = d.copy() # Not sure if this harms performance. 
+        d_ = d.copy() # A working on a copy of d - requirement so that tf.function compiles.
         if self.edge_function is not None:
             new_edges = self.edge_block(**d_)
             d_['edges'] = new_edges
@@ -973,16 +1058,25 @@ def make_mlp(units, input_tensor_list , output_shape, activation = "relu", **kwa
                 return Dense(*args, **kwargs)
 
     dense_maker = DenseMaker()
-    y = dense_maker.make(units, use_bias = False)(edge_function_input)
-    y = dense_maker.make(units, activation = activation)(y)
-    y = dense_maker.make(units, activation = activation)(y)
+    if not isinstance(units,list):
+        y = dense_maker.make(units, use_bias = False)(edge_function_input)
+        y = dense_maker.make(units, activation = activation)(y)
+        y = dense_maker.make(units, activation = activation)(y)
 
-    if act_last_layer:
-        #y = tf.keras.layers.LayerNormalization()(y)
-        y = dense_maker.make(output_shape[0], activation = activation)(y)
+        if act_last_layer:
+            y = dense_maker.make(output_shape[0], activation = activation)(y)
+        else:
+            y = dense_maker.make(output_shape[0])(y)
     else:
-        #y = tf.keras.layers.LayerNormalization()(y)
-        y = dense_maker.make(output_shape[0])(y)
+        if len(units) == 0:
+            y = dense_maker.make(output_shape[0], use_bias = False)(edge_function_input)
+        else:
+            y = edge_function_input
+            for kk, u in enumerate(units):
+                if kk == 0:
+                    y = dense_maker.make(u, use_bias = False)(y)
+                else:
+                    y = dense_maker.make(u)(y)
         
     if 'model_name' in kwargs.keys():
         name= kwargs['model_name']
@@ -1146,8 +1240,8 @@ def make_keras_simple_agg(input_size, agg_type):
     dict_agg = {
             'mean' : (tf.reduce_mean,tf.math.unsorted_segment_mean),
             'sum'  : (tf.reduce_sum,tf.math.unsorted_segment_sum),
-            'max'  : (tf.reduce_max,tf.math.unsorted_segment_max),
-            'min'  : (tf.reduce_min,tf.math.unsorted_segment_min)}
+            'max'  : (tf.reduce_max,unsorted_segment_max_or_zero),
+            'min'  : (tf.reduce_min,unsorted_segment_min_or_zero)}
 
     x = Input(shape = input_size, name = "edge_messages") # for "segment" aggregators this needs also a bunch of indices!
     aggs = dict_agg[agg_type]
@@ -1158,7 +1252,7 @@ def make_keras_simple_agg(input_size, agg_type):
     
     return m_basic, m_seg
 
-# TODO: Make the aggregators composable!
+# TODO: Make the aggregators composable
 def make_mean_max_agg(input_size):
     """
     A mean and a max aggregator appended together. This was is useful for some special use-cases.
@@ -1194,7 +1288,7 @@ def make_mean_max_min_agg(input_size):
     m_basic = tf.keras.Model(inputs = x , outputs = agg_out, name = 'basic_meanmaxmin_aggregator')
 
     def tf_function_agg(x, recv, max_seq):
-        v1,v2,v3 = tf.math.unsorted_segment_mean(x,recv,max_seq), tf.math.unsorted_segment_max(x,recv, max_seq) , tf.math.unsorted_segment_min(x, recv,max_seq)
+        v1,v2,v3 = tf.math.unsorted_segment_mean(x,recv,max_seq), unsorted_segment_max_or_zero(x,recv, max_seq) , unsorted_segment_min_or_zero(x, recv,max_seq)
         agg_ss = tf.concat([v1,v2, v3], axis = -1)
         return agg_ss
 
@@ -1244,17 +1338,24 @@ def _aggregation_function_factory(input_shape, agg_type = 'mean'):
     """
     # Each lambda creates a "basic" and a "segment" (sparse) aggregator.
     agg_type_dict = {
-            'mean' : lambda input_shape : make_keras_simple_agg(input_shape, 'mean'),
-            'sum' : lambda input_shape : make_keras_simple_agg(input_shape, 'sum'),
-            'max' : lambda input_shape : make_keras_simple_agg(input_shape, 'max'),
-            'min' : lambda input_shape : make_keras_simple_agg(input_shape, 'min'),
-            'mean_max' : lambda input_shape : make_mean_max_agg(input_shape), # compound aggregator (appending aggregators)
-            'mean_max_min' : lambda input_shape : make_mean_max_min_agg(input_shape),
+            'mean' : lambda input_shape :             make_keras_simple_agg(input_shape, 'mean'),
+            'sum' : lambda input_shape :              make_keras_simple_agg(input_shape, 'sum'),
+            'max' : lambda input_shape :              make_keras_simple_agg(input_shape, 'max'),
+            'min' : lambda input_shape :              make_keras_simple_agg(input_shape, 'min'),
+            'mean_max' : lambda input_shape :         make_mean_max_agg(input_shape), # compound aggregator (appending aggregators)
+            'mean_max_min' : lambda input_shape :     make_mean_max_min_agg(input_shape),
             'mean_max_min_sum' : lambda input_shape : make_mean_max_min_sum_agg(input_shape)
             }
 
-    aggregators = agg_type_dict[agg_type](input_shape)
-    return aggregators
+    
+    try:
+        aggregators = agg_type_dict[agg_type](input_shape)
+        return aggregators
+    except TypeError:
+        aggregators = agg_type_dict[agg_type]((input_shape,))
+        return aggregators
+
+
 
 
 def make_mlp_graphnet_functions(units,
