@@ -1568,6 +1568,7 @@ def make_graph_to_graph_and_global_functions(units,
                                             node_or_core_output_size = None, 
                                             edge_output_size = None, 
                                             edge_input_size = None,
+                                            aggregation_function = 'mean',
                                             **kwargs):
     """
     A wrapper to a more general function factory.
@@ -1621,6 +1622,7 @@ def make_graph_to_graph_and_global_functions(units,
                                        use_global_to_edge = False, # <- refers to the global input (that is un-used)
                                        use_global_to_node = False, # <-     >>   >>  >> 
                                        graph_indep=False,
+                                       aggregation_function = aggregation_function,
                                        **kwargs)
 
 
@@ -1631,6 +1633,7 @@ def make_graph_indep_graphnet_functions(units,
         edge_output_size = None,
         global_input_size = None,
         global_output_size = None,
+        aggregation_function = 'mean',
         **kwargs):
 
     """
@@ -1686,6 +1689,7 @@ def make_graph_indep_graphnet_functions(units,
                                         use_global_to_node=False,
                                         create_global_function=True, 
                                         graph_indep=True,
+                                        aggregation_function = aggregation_function,
                                         **kwargs)
 
 
@@ -1697,6 +1701,7 @@ def make_full_graphnet_functions(units,
         edge_output_size = None, 
         global_input_size = None, 
         global_output_size = None, 
+        aggregation_function ='mean',
         **kwargs):
     """
     A wrapper that creates the functions that are needed for a full GN block. 
@@ -1749,7 +1754,9 @@ def make_full_graphnet_functions(units,
                                         use_global_input = True,
                                         use_global_to_edge=True,
                                         use_global_to_node=True,
-                                        create_global_function=True, **kwargs)
+                                        create_global_function=True,
+                                        aggregation_function = aggregation_function,
+                                        **kwargs)
 
 
 
