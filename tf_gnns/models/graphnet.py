@@ -217,7 +217,15 @@ class GraphIndep(tf.keras.layers.Layer):
                  activate_last_layer = False,
                  layernorm_last_layer = False,
                 *args,**kwargs):
+
+        layer_constr_kwargs = {};
+        make_mlp_kwarg_keys = ['layernorm_last_layer', 'activate_last_layer']
+        for k in make_mlp_kwarg_keys:
+            if k in kwargs:
+                layer_constr_kwargs.update({k : kwargs[k]})
+            del kwargs[k]
         super(GraphIndep, self).__init__(*args, **kwargs)
+        self.layer_constr_kwargs  = layer_constr_kwargs
 
         self.units = units_out
         self._gn_mlp_units = gn_mlp_units
@@ -241,7 +249,8 @@ class GraphIndep(tf.keras.layers.Layer):
                                             global_input_size      =input_shape['global_attr'][1],
                                             node_or_core_output_size = self.node_output_size,
                                             edge_output_size       = self.edge_output_size,
-                                            global_output_size     = self.global_output_size)
+                                            global_output_size     = self.global_output_size,
+                                            **self.layer_constr_kwargs)
         
         
         self.gn_graph_indep = GraphNet(**gnfns)
