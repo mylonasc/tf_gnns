@@ -223,7 +223,7 @@ class GraphIndep(tf.keras.layers.Layer):
         for k in make_mlp_kwarg_keys:
             if k in kwargs:
                 layer_constr_kwargs.update({k : kwargs[k]})
-            del kwargs[k]
+                del kwargs[k]
         super(GraphIndep, self).__init__(*args, **kwargs)
         self.layer_constr_kwargs  = layer_constr_kwargs
 
