@@ -6,6 +6,53 @@ from tf_gnns.lib.gt_ops import _assign_add_tensor_dict
 import tensorflow as tf
 import IPython
 
+class GNCellMLP(tf.keras.layers.Layer):
+    """
+    A single graph net block (a "Process" layer):
+    This is closer to the `MLPGraphNetwork` of the demos in `graph_nets`.
+    """
+    def __init__(self, gn_mlp_units, core_size = None,
+                 node_output_size = None,
+                 edge_output_size = None,
+                 global_output_size = None ,
+                 aggregation_function = "mean",
+                *args,**kwargs):
+        super(GNCellMLP, self).__init__(*args, **kwargs)
+
+        self._gn_mlp_units = gn_mlp_units
+
+        self.is_built = False
+        self.aggregation_function = aggregation_function
+        if node_output_size is None:
+            node_output_size = core_size
+        if edge_output_size is None:
+            edge_output_size = core_size
+        if global_output_size is None:
+            global_output_size = core_size
+
+        self.node_output_size  = node_output_size
+        self.edge_output_size  = edge_output_size
+        self.global_output_size = global_output_size
+
+    def build(self,input_shape):
+
+        gnfns = make_full_graphnet_functions(self._gn_mlp_units,
+                                            node_or_core_input_size=input_shape['nodes'][1],
+                                            edge_input_size        =input_shape['edges'][1],
+                                            global_input_size      =input_shape['global_attr'][1],
+                                            node_or_core_output_size = self.node_output_size,
+                                            edge_output_size       = self.edge_output_size,
+                                            global_output_size     = self.global_output_size,
+                                            aggregation_function = self.aggregation_function)
+
+        self.gn_core = GraphNet(**gnfns)
+        self.all_weights = self.gn_core.weights
+        self.is_built = True
+
+    def call(self, g_):
+        return self.gn_core.eval_tensor_dict(g_)
+
+
 class GraphNetMLP(tf.keras.layers.Layer):
     """
     A GraphNet with all functions implemented as MLPs
@@ -139,13 +186,21 @@ class GraphNetMLP(tf.keras.layers.Layer):
         return s
 
     def call(self, g_):
+
         g_ = self.g_enc_determ.eval_tensor_dict(g_)
+
         for _gn in self.g_core_determ:
+
             go_ = _gn.eval_tensor_dict(g_)
+
             if self.is_residual:
+
                 g_ = _assign_add_tensor_dict(g_, go_)
+
             else:
+
                 g_ = go_
+
         g_ = self.g_dec_determ.eval_tensor_dict(g_)
         return g_
 
