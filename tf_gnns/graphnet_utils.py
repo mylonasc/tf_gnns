@@ -565,7 +565,7 @@ class GraphNet:
         return tf_graph_tuple
         # no changes in Graph topology - nothing else to do!
 
-    @tf.function
+    #@tf.function
     def edge_block(self,edges = None, nodes = None, senders = None, receivers = None,
                    n_edges = None, n_nodes = None,
                    global_attr= None,_global_reps_for_edges = None, _global_reps_for_nodes = None,n_graphs = None):

@@ -4,8 +4,9 @@ from tf_gnns.graphnet_utils import GraphNet
 from tf_gnns.lib.gt_ops import _assign_add_tensor_dict
 
 import tensorflow as tf
+import IPython
 
-class GraphNetMLP(tf.keras.Model):
+class GraphNetMLP(tf.keras.layers.Layer):
     """
     A GraphNet with all functions implemented as MLPs
     """
@@ -28,6 +29,7 @@ class GraphNetMLP(tf.keras.Model):
         super(GraphNetMLP, self).__init__(*args, **kwargs)
 
         self.aggregation_function = aggregation_function
+
         if core_units is None:
             core_units = units
         if gi_units is None:
@@ -111,7 +113,10 @@ class GraphNetMLP(tf.keras.Model):
         if self._is_recurrent:
             core_weights = g_core_determ_list[0].weights
         else:
-            core_weights = [w.weights for w in g_core_determ_list]
+            core_weights = []
+            for w in g_core_determ_list:
+                core_weights.extend(w.weights)
+        
 
         self.all_weights.extend([*self.g_enc_determ.weights, *core_weights, *self.g_dec_determ.weights])
         self.g_core_determ = g_core_determ_list
@@ -122,7 +127,7 @@ class GraphNetMLP(tf.keras.Model):
         s = ''
         s += "<h> GN Deterministic path containing the following GNs (%s,%s): </h> "%(self.name,id(self))
         if not self.is_built:
-            s += "Model not yet built."
+            s += "Layer not yet built."
             return s
 
         s += self.g_enc_determ._repr_html_()
@@ -133,7 +138,6 @@ class GraphNetMLP(tf.keras.Model):
         s += self.g_dec_determ._repr_html_()
         return s
 
-    @tf.function
     def call(self, g_):
         g_ = self.g_enc_determ.eval_tensor_dict(g_)
         for _gn in self.g_core_determ:
@@ -146,7 +150,7 @@ class GraphNetMLP(tf.keras.Model):
         return g_
 
 
-class GraphIndep(tf.keras.Model):
+class GraphIndep(tf.keras.layers.Layer):
     """
     A single graph-independent block.
     """
@@ -172,6 +176,7 @@ class GraphIndep(tf.keras.Model):
         self.global_output_size = global_output_size
         
     def build(self,input_shape):
+        #IPython.embed()
         gnfns = make_graph_indep_graphnet_functions(self._gn_mlp_units,
                                             node_or_core_input_size=input_shape['nodes'][1],
                                             edge_input_size        =input_shape['edges'][1],
@@ -185,7 +190,6 @@ class GraphIndep(tf.keras.Model):
         self.all_weights = self.gn_graph_indep.weights
         self.is_built = True
         
-    @tf.function
     def call(self, g_):
         return self.gn_graph_indep.eval_tensor_dict(g_)
 

@@ -4,6 +4,8 @@
 # 
 # 
 
+import tensorflow as tf
+
 GRAPH_TUPLE_STRUCTURE = ['senders', 'receivers', 'n_nodes', 'n_edges', '_global_reps_for_edges', '_global_reps_for_nodes', 'n_graphs']
 
 def _zero_graph(g_,state_size = None):
@@ -58,7 +60,8 @@ def _concat_tensordicts(t1,t2):
     td_new = _copy_structure(t1)
     td_new['nodes'] = tf.concat([t1['nodes'], t2['nodes']], axis = -1)
     td_new['edges'] = tf.concat([t1['edges'], t2['edges']], axis = -1)
-    td_new['global_attr'] = tf.concat([t1['global_attr'], t2['global_attr']], axis = -1)
+    if 'global_attr' in t1:
+        td_new['global_attr'] = tf.concat([t1['global_attr'], t2['global_attr']], axis = -1)
     return td_new
 
 def _copy_structure(g_):
@@ -99,7 +102,7 @@ def _slice_conc_tensordict(td_, node_slices , edge_slices , glob_slices ):
         ni, ei, gi = [node_slices[k], edge_slices[k], glob_slices[k]]
         new_tds = _copy_structure(td_)
         new_tds['nodes'] = td_['nodes'][:,cni:cni+ni]
-        new_tds['edges'] = td_['nodes'][:,cei:cei+ei]
+        new_tds['edges'] = td_['edges'][:,cei:cei+ei]
         new_tds['global_attr'] = td_['global_attr'][:,cgi:cgi+gi]
         tds_.append(new_tds)
         cei += ei
