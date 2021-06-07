@@ -1062,6 +1062,8 @@ def make_mlp(units, input_tensor_list , output_shape, activation = "relu", **kwa
 
     dense_maker = DenseMaker()
     if not isinstance(units,list):
+        # If the input is not a list, it is assumed to be an integer.
+        # Then a two-layer MLP is constructed.
         y = dense_maker.make(units, use_bias = False)(edge_function_input)
         y = dense_maker.make(units, activation = activation)(y)
         y = dense_maker.make(units, activation = activation)(y)
@@ -1070,8 +1072,7 @@ def make_mlp(units, input_tensor_list , output_shape, activation = "relu", **kwa
             y = dense_maker.make(output_shape[0], activation = activation)(y)
         else:
             y = dense_maker.make(output_shape[0])(y)
-        if layernorm_last_layer:
-            y = tf.keras.layers.LayerNormalization()(y)
+
     else:
         if len(units) == 0:
             y = dense_maker.make(output_shape[0], use_bias = False)(edge_function_input)
@@ -1082,6 +1083,9 @@ def make_mlp(units, input_tensor_list , output_shape, activation = "relu", **kwa
                     y = dense_maker.make(u, use_bias = False)(y)
                 else:
                     y = dense_maker.make(u)(y)
+
+    if layernorm_last_layer:
+        y = tf.keras.layers.LayerNormalization()(y)
         
     if 'model_name' in kwargs.keys():
         name= kwargs['model_name']
@@ -1175,7 +1179,6 @@ def make_global_mlp(units, global_in_size = None,
 
     with tf.name_scope("glob_fn") as scope:
         kwargs['model_name'] = scope + 'model'
-        #print("scope: %s, global_emb_size : %i"%(scope,global_emb_size[0]))
         return make_mlp(units, global_inputs_list , global_emb_size, activation = activation, **kwargs)
 
 
@@ -1686,7 +1689,6 @@ def make_graph_indep_graphnet_functions(units,
                                         node_or_core_input_size, 
                                         node_or_core_output_size, 
                                         edge_input_size = edge_input_size,
-                                        edge_output_size = edge_output_size,
                                         global_output_size = global_output_size,
                                         global_input_size = global_input_size,
                                         use_global_input = True,

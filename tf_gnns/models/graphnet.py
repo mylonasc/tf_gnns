@@ -6,6 +6,7 @@ from tf_gnns.lib.gt_ops import _assign_add_tensor_dict
 import tensorflow as tf
 import IPython
 
+
 class GNCellMLP(tf.keras.layers.Layer):
     """
     A single graph net block (a "Process" layer):
@@ -17,6 +18,15 @@ class GNCellMLP(tf.keras.layers.Layer):
                  global_output_size = None ,
                  aggregation_function = "mean",
                 *args,**kwargs):
+
+        layer_constr_kwargs = {};
+        make_mlp_kwarg_keys = ['layernorm_last_layer', 'activate_last_layer']
+        for k in make_mlp_kwarg_keys:
+            if k in kwargs.keys():
+                layer_constr_kwargs.update({k : kwargs[k]})
+                kwargs.pop(k)
+        self.layer_constr_kwargs = layer_constr_kwargs
+
         super(GNCellMLP, self).__init__(*args, **kwargs)
 
         self._gn_mlp_units = gn_mlp_units
@@ -43,7 +53,8 @@ class GNCellMLP(tf.keras.layers.Layer):
                                             node_or_core_output_size = self.node_output_size,
                                             edge_output_size       = self.edge_output_size,
                                             global_output_size     = self.global_output_size,
-                                            aggregation_function = self.aggregation_function)
+                                            aggregation_function = self.aggregation_function,
+                                            **self.layer_constr_kwargs)
 
         self.gn_core = GraphNet(**gnfns)
         self.all_weights = self.gn_core.weights
@@ -214,8 +225,6 @@ class GraphIndep(tf.keras.layers.Layer):
                  node_output_size = None,
                  edge_output_size = None,
                  global_output_size = None,
-                 activate_last_layer = False,
-                 layernorm_last_layer = False,
                 *args,**kwargs):
 
         layer_constr_kwargs = {};
@@ -223,7 +232,7 @@ class GraphIndep(tf.keras.layers.Layer):
         for k in make_mlp_kwarg_keys:
             if k in kwargs.keys():
                 layer_constr_kwargs.update({k : kwargs[k]})
-                del kwargs[k]
+                kwargs.pop(k)
         super(GraphIndep, self).__init__(*args, **kwargs)
         self.layer_constr_kwargs  = layer_constr_kwargs
 
@@ -242,7 +251,6 @@ class GraphIndep(tf.keras.layers.Layer):
         self.global_output_size = global_output_size
         
     def build(self,input_shape):
-        #IPython.embed()
         gnfns = make_graph_indep_graphnet_functions(self._gn_mlp_units,
                                             node_or_core_input_size=input_shape['nodes'][1],
                                             edge_input_size        =input_shape['edges'][1],
