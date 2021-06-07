@@ -143,8 +143,6 @@ def _split_tensor_dict_to_repar(td, nlatent_nodes_or_all, nlatent_edges = None, 
     return td_mean, td_std
 
 
-
-
 EDGE_FUNCTION_INPUTS = ['global_state','sender_node_state','receiver_node_state','edge_state']
 class EdgeInput(Enum):
     GLOBAL_STATE = 'global_state'
@@ -1044,6 +1042,11 @@ def make_mlp(units, input_tensor_list , output_shape, activation = "relu", **kwa
         act_last_layer = kwargs['activate_last_layer']
     else:
         act_last_layer = False
+
+    if 'layernorm_last_layer' in kwargs.keys():
+        layernorm_last_layer = kwargs['layernorm_last_layer']
+    else:
+        layernorm_last_layer = False
     
     
     # A workaround to keep track of created weights easily:
@@ -1067,6 +1070,8 @@ def make_mlp(units, input_tensor_list , output_shape, activation = "relu", **kwa
             y = dense_maker.make(output_shape[0], activation = activation)(y)
         else:
             y = dense_maker.make(output_shape[0])(y)
+        if layernorm_last_layer:
+            y = tf.keras.layers.LayerNormalization()(y)
     else:
         if len(units) == 0:
             y = dense_maker.make(output_shape[0], use_bias = False)(edge_function_input)

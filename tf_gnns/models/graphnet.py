@@ -214,8 +214,11 @@ class GraphIndep(tf.keras.layers.Layer):
                  node_output_size = None,
                  edge_output_size = None,
                  global_output_size = None,
+                 activate_last_layer = False,
+                 layernorm_last_layer = False,
                 *args,**kwargs):
         super(GraphIndep, self).__init__(*args, **kwargs)
+
         self.units = units_out
         self._gn_mlp_units = gn_mlp_units
         self.is_built = False
