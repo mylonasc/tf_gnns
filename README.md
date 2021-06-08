@@ -23,9 +23,24 @@ pip install tf_gnns
 # Examples
 More examples to be implemented. Feel free to contribute!
 
+## `tf_gnns` basics
 You may inspect some basic functionality on the following colab notebook:
-
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/mylonasc/tf_gnns/blob/main/notebooks/01_tf_gnn_basics.ipynb)
+
+## list sorting example
+(Example from the original `deepmind/graph_nets` library)
+If you are familiar with the original `graph_nets` library, this example will help you understand how you can transition to `tf_gnns`.
+
+Sort a list of elements
+This notebook and the accompanying code demonstrates how to use the Graph Nets library to learn to sort a list of elements.
+
+A list of elements is treated as a fully connected graph, and the task is to label the nodes and edges as a linked list. The network is trained to label the start node, and which (directed) edges correspond to the links to the next largest element, for each node.
+
+After training, the network's prediction ability is illustrated by comparing its output to the true sorted list. Then the network's ability to generalise is tested, by using it to sort larger lists.
+
+**The performance of the `tf_gnns` library seems to be at least as good as `deepmind/graph_nets` for this example.**
+
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/mylonasc/tf_gnns/blob/main/notebooks/02_list_sorting.ipynb)
 
 # Publications using `tf_gnns`
 The library has been used so far in the following publications:
