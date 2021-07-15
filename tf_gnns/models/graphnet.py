@@ -20,7 +20,7 @@ class GNCellMLP(tf.keras.layers.Layer):
                 *args,**kwargs):
 
         layer_constr_kwargs = {};
-        make_mlp_kwarg_keys = ['layernorm_last_layer', 'activate_last_layer']
+        make_mlp_kwarg_keys = ['layernorm_last_layer', 'activate_last_layer','activation']
         for k in make_mlp_kwarg_keys:
             if k in kwargs.keys():
                 layer_constr_kwargs.update({k : kwargs[k]})
@@ -220,15 +220,17 @@ class GraphIndep(tf.keras.layers.Layer):
     """
     A single graph-independent block.
     """
-    def __init__(self, units_out, 
+    def __init__(self,  
+                 units_out,
                  gn_mlp_units = [], 
                  node_output_size = None,
                  edge_output_size = None,
                  global_output_size = None,
+                 activation = 'relu',
                 *args,**kwargs):
 
         layer_constr_kwargs = {};
-        make_mlp_kwarg_keys = ['layernorm_last_layer', 'activate_last_layer']
+        make_mlp_kwarg_keys = ['layernorm_last_layer', 'activate_last_layer','activation']
         for k in make_mlp_kwarg_keys:
             if k in kwargs.keys():
                 layer_constr_kwargs.update({k : kwargs[k]})
@@ -240,24 +242,34 @@ class GraphIndep(tf.keras.layers.Layer):
         self._gn_mlp_units = gn_mlp_units
         self.is_built = False
         if node_output_size is None:
-            node_output_size = units_out
+            node_output_size = self.units 
         if edge_output_size is None:
-            edge_output_size = units_out
+            edge_output_size = self.units
         if global_output_size is None:
-            global_output_size = units_out
+            global_output_size = self.units
             
-        self.node_output_size  = node_output_size
-        self.edge_output_size  = edge_output_size
+        self.node_output_size   = node_output_size
+        self.edge_output_size   = edge_output_size
         self.global_output_size = global_output_size
+
+    def _repr_html_(self):
+
+        s = ''
+        s += "<h> GraphIndep (%s,%s): </h> "%(self.name,id(self))
+        try:
+            s += self.gn_graph_indep._repr_html_()
+        except:
+            s += 'Not built!'
+        return s
         
     def build(self,input_shape):
         gnfns = make_graph_indep_graphnet_functions(self._gn_mlp_units,
-                                            node_or_core_input_size=input_shape['nodes'][1],
-                                            edge_input_size        =input_shape['edges'][1],
-                                            global_input_size      =input_shape['global_attr'][1],
+                                            node_or_core_input_size  = input_shape['nodes'][1],
+                                            edge_input_size          = input_shape['edges'][1],
+                                            global_input_size        = input_shape['global_attr'][1],
                                             node_or_core_output_size = self.node_output_size,
-                                            edge_output_size       = self.edge_output_size,
-                                            global_output_size     = self.global_output_size,
+                                            edge_output_size         = self.edge_output_size,
+                                            global_output_size       = self.global_output_size,
                                             **self.layer_constr_kwargs)
         
         
