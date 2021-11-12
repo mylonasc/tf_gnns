@@ -8,3 +8,4 @@ from .graphnet_utils  import _aggregation_function_factory, make_full_graphnet_f
 from .lib.gt_ops      import _add_gt, _assign_add_tensor_dict, _concat_tensordicts, _copy_structure, _slice_conc_tensordict, _zero_graph, _zero_graph_tf 
 from .models.graphnet import GraphNetMLP, GraphIndep, GNCellMLP
 print("loaded tfgnn lib")
+
