@@ -39,6 +39,10 @@ import numpy as np
 
 from .datastructures import Graph
 
+
+# The following stores how larger is the aggregation operation 
+# compared to the message output. For instance mean_max is 
+# 2 x [dimension of incoming messages] 
 AGG_TO_MESSAGE_DICT = {
                         'mean'             : 1, 
                         'max'              : 1, 
@@ -52,7 +56,10 @@ AGG_TO_MESSAGE_DICT = {
 
 
 def _unsorted_segment_reduction_or_zero(reducer, values, indices, num_groups):
-  """Common code for unsorted_segment_{min,max}_or_zero (below)."""
+  """
+  Common code for unsorted_segment_{min,max}_or_zero (below).
+  """
+
   reduced = reducer(values, indices, num_groups)
   present_indices = tf.math.unsorted_segment_max(
       tf.ones_like(indices, dtype=reduced.dtype), indices, num_groups)
@@ -255,8 +262,6 @@ class GraphNet:
             else:
                 self.edge_aggregation_function = edge_aggregation_function        
 
-            #self.scan_edge_to_node_aggregation_function(node_function)
-
         if node_to_global_aggregation_function is not None:
             try:
                 len_ea = len(node_to_global_aggregation_function)
@@ -264,12 +269,6 @@ class GraphNet:
             except:
                 None
 
-
-        
-        #self.has_seg_aggregator_node_to_edge = False
-        #self.has_seg_aggregator_node_to_global = False
-
-        
         if self.edge_function is not None: 
             self.edge_input_size = self.edge_function.inputs[0].shape[1] # input dimension 1 of edge mlp is the edge state size by convention.
 
@@ -315,7 +314,7 @@ class GraphNet:
 
 
 
-        #These are booleans so TF can easilly make tf.functions and not re-trace them.
+        # The following help TF to avoid retracing tf.functions blocks. 
         self.uses_edge_state, self.uses_sender_node_state, self.uses_receiver_node_state = [False, False, False]
 
         if EdgeInput.EDGE_STATE.value in self.edge_input_dict.keys():
@@ -396,6 +395,9 @@ class GraphNet:
             print("* No aggregation function - Graph-independent network.")
 
     def _repr_html_(self):
+        """
+        Print HTML buttons - for jupyter. 
+        """
         s = ''
         s +=  '<div>'
         #s += '<html>'
@@ -483,8 +485,11 @@ class GraphNet:
         # 
         # Global state can also be supplied as an argument (if the edge and/or node functions use it)
         #
-        # parameters:
-        #  tf_graph_tuple : a GraphTuple object containing nodes, edges and their connectivity for multiple graphs.
+        # Arguments:
+        #  tf_graph_tuple : a GraphTuple object (i.e. a dictionary containing tensors) containing nodes, edges and their connectivity for multiple graphs.
+        # 
+        # Outputs:
+        #  A 
 
         # if the graph is not graph_indep compute the edge-messages with the aggregator.
 
@@ -537,8 +542,6 @@ class GraphNet:
 
         # 4) Global computation:
         # Aggregate edges to global:
-
-
         global_inputs = {}
         if (GlobalInput.EDGE_AGG_STATE.value in self.global_input_dict.keys()):
             if self.has_seg_aggregator_node_to_edge: #<- same aggregator for edges-to-nodes and edges-to-global.
@@ -563,7 +566,7 @@ class GraphNet:
         return tf_graph_tuple
         # no changes in Graph topology - nothing else to do!
 
-    #@tf.function
+    @tf.function
     def edge_block(self,edges = None, nodes = None, senders = None, receivers = None,
                    n_edges = None, n_nodes = None,
                    global_attr= None,_global_reps_for_edges = None, _global_reps_for_nodes = None,n_graphs = None):
@@ -656,7 +659,7 @@ class GraphNet:
           'edges','nodes','senders','receivers','n_edges','n_nodes','global_attr','_global_reps_for_edges','_global_reps_for_nodes'
 
         """
-        d_ = d.copy() # A working on a copy of d - requirement so that tf.function compiles.
+        d_ = d.copy() # A working on a copy of d (for tf.function compilation requirement).
         if self.edge_function is not None:
             new_edges = self.edge_block(**d_)
             d_['edges'] = new_edges
@@ -737,7 +740,7 @@ class GraphNet:
                             'node_state' : n.node_attr_tensor, 
                             'edge_state_agg' : edge_to_node_agg
                         }) # TODO: Change that to infer inputs from function names like the GraphTuple method.
-                                                                                              #       Also treat "globals" with this method (currently un-treated)
+                                                                                              
                 n.set_tensor(node_attr_tensor)
 
         if return_messages:
@@ -746,6 +749,12 @@ class GraphNet:
         return graph
 
     def save(self, path):
+        """
+        Save the model. Iterates of the keras models required and saves them in a folder.
+
+        Arguments:
+          path: the path to save to. Creates it if it does not exist.
+        """
         functions = [self.node_function, self.edge_aggregation_function, self.edge_function]
         path_labels = ["node_function", "edge_aggregation_function", "edge_function"]
         import os
