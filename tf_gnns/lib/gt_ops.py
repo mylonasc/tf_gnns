@@ -6,7 +6,7 @@
 
 import tensorflow as tf
 
-GRAPH_TUPLE_STRUCTURE = ['senders', 'receivers', 'n_nodes', 'n_edges', '_global_reps_for_edges', '_global_reps_for_nodes', 'n_graphs']
+GRAPH_TUPLE_STRUCTURE = ['senders', 'receivers', 'n_nodes', 'n_edges', 'global_reps_for_edges', 'global_reps_for_nodes', 'n_graphs']
 
 def _zero_graph(g_,state_size = None):
     """

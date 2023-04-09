@@ -237,7 +237,7 @@ def make_graph_tuple_from_graph_list(list_of_graphs):
 
 
 class GraphTuple:
-    def __init__(self, nodes, edges,senders,receivers, n_nodes, n_edges, global_attr = None,sort_receivers_to_edges  = False , _global_reps_for_nodes = None, _global_reps_for_edges = None, n_graphs = None):
+    def __init__(self, nodes, edges,senders,receivers, n_nodes, n_edges, global_attr = None,sort_receivers_to_edges  = False , global_reps_for_nodes = None, global_reps_for_edges = None, n_graphs = None):
         """
         A graph tuple contains multiple graphs for faster batched computation. 
         
@@ -250,8 +250,8 @@ class GraphTuple:
             n_edges    : a list,a numpy array or a tf.Tensor containing how many edges are in each graph represented by the nodes and edges in the object
             global_attr: (optional) a `tf.Tensor` or a `np.array` containing global attributes (first size - self.n_graphs)
             sort_receivers :  (optional) whether to sort the edges on construction, allowing for not needing to sort the output of the node receiver aggregators.
-            _global_reps_for_edges : (optional) used for the aggregation of the global var.
-            _global_reps_for_nodes : (optional) used for the aggregation of the global var.
+            global_reps_for_edges : (optional) used for the aggregation of the global var.
+            global_reps_for_nodes : (optional) used for the aggregation of the global var.
             n_graphs   : (optional)
         """
         # Sort edges according to receivers and sort receivers:
@@ -284,7 +284,7 @@ class GraphTuple:
 
         self.graph_indices_nodes , self.graph_indices_edges = graph_indices_nodes, graph_indices_edges
 
-        if (_global_reps_for_edges is None ) and (_global_reps_for_nodes is None):
+        if (global_reps_for_edges is None ) and (global_reps_for_nodes is None):
             self.update_reps_for_globals()
         self.n_graphs = len(self.n_nodes)
 
@@ -410,7 +410,7 @@ def _graphtuple_to_tensor_dict(gt_):
             'n_nodes' : _tf_constant_or_none(gt_.n_nodes),
             'n_graphs' : _tf_constant_or_none(gt_.n_graphs),
             'global_attr' : _tf_constant_or_none(gt_.global_attr),
-           '_global_reps_for_edges' : _tf_constant_or_none(gt_._global_reps_for_edges),
-           '_global_reps_for_nodes' : _tf_constant_or_none(gt_._global_reps_for_nodes)}
+            'global_reps_for_edges' : _tf_constant_or_none(gt_._global_reps_for_edges),
+            'global_reps_for_nodes' : _tf_constant_or_none(gt_._global_reps_for_nodes)}
         
 

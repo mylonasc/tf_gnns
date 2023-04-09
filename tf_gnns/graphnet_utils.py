@@ -569,7 +569,7 @@ class GraphNet:
     @tf.function
     def edge_block(self,edges = None, nodes = None, senders = None, receivers = None,
                    n_edges = None, n_nodes = None,
-                   global_attr= None,_global_reps_for_edges = None, _global_reps_for_nodes = None,n_graphs = None):
+                   global_attr= None, global_reps_for_edges = None, global_reps_for_nodes = None,n_graphs = None):
         
         edge_inputs  = {}
         if EdgeInput.EDGE_STATE.value in self.edge_input_dict.keys():
@@ -585,7 +585,7 @@ class GraphNet:
             edge_inputs.update({EdgeInput.RECEIVER_NODE_STATE.value : v })
 
         if EdgeInput.GLOBAL_STATE.value in self.edge_input_dict.keys():
-            edge_reps = _global_reps_for_edges
+            edge_reps = global_reps_for_edges
             edge_inputs.update({
                 EdgeInput.GLOBAL_STATE.value : tf.gather(global_attr,edge_reps, axis = 0)
             })
@@ -596,7 +596,7 @@ class GraphNet:
 
     @tf.function
     def node_block(self,edges = None, nodes = None, senders = None, receivers = None, 
-                  n_edges = None, n_nodes = None, global_attr = None,_global_reps_for_edges = None, _global_reps_for_nodes = None,n_graphs = None):
+                  n_edges = None, n_nodes = None, global_attr = None, global_reps_for_edges = None, global_reps_for_nodes = None,n_graphs = None):
         # 2) Aggregate the messages (unsorted segment sums etc):
         node_inputs = OrderedDict()
         # 3) Compute node function:
@@ -604,7 +604,7 @@ class GraphNet:
             node_inputs.update({NodeInput.NODE_STATE.value : nodes})
 
         if NodeInput.GLOBAL_STATE.value in self.node_input_dict.keys():
-            node_inputs.update({NodeInput.GLOBAL_STATE.value : tf.gather(global_attr,_global_reps_for_nodes)})
+            node_inputs.update({NodeInput.GLOBAL_STATE.value : tf.gather(global_attr, global_reps_for_nodes)})
 
         if NodeInput.EDGE_AGG_STATE.value in self.node_input_dict.keys():
             if self.has_seg_aggregator_edge_to_global:
@@ -620,8 +620,8 @@ class GraphNet:
 
     @tf.function
     def global_block(self, edges = None, nodes = None, senders = None, receivers = None, 
-                    n_edges = None, n_nodes = None , global_attr = None, _global_reps_for_edges = None,
-                     _global_reps_for_nodes = None, n_graphs = None):
+                    n_edges = None, n_nodes = None , global_attr = None, global_reps_for_edges = None,
+                     global_reps_for_nodes = None, n_graphs = None):
         
         global_inputs = {}
         if n_graphs is None:
@@ -630,14 +630,14 @@ class GraphNet:
         if (GlobalInput.EDGE_AGG_STATE.value in self.global_input_dict.keys()):
             if self.has_seg_aggregator_edge_to_global: #<- same aggregator for edges-to-nodes and edges-to-global.
                 edges_to_global_messages = self.edge_aggregation_function_seg(
-                        edges, _global_reps_for_edges, n_graphs)
+                        edges, global_reps_for_edges, n_graphs)
                 global_inputs.update({GlobalInput.EDGE_AGG_STATE.value : edges_to_global_messages})
             else:
                 raise Exception("Not Implemented!")
         if (GlobalInput.NODE_AGG_STATE.value in self.global_input_dict.keys()):
             if self.has_seg_aggregator_node_to_global:
                 nodes_to_global_messages = self.node_to_global_aggregation_function[1](
-                    nodes, _global_reps_for_nodes, n_graphs)
+                    nodes, global_reps_for_nodes, n_graphs)
                 global_inputs.update({GlobalInput.NODE_AGG_STATE.value : nodes_to_global_messages})
 
         if GlobalInput.GLOBAL_STATE.value in self.global_input_dict.keys():
@@ -656,7 +656,7 @@ class GraphNet:
         of tensors by `_graphtuple_to_tensor_dict` function. 
 
         `d` is an ordered dictionary containing the following:
-          'edges','nodes','senders','receivers','n_edges','n_nodes','global_attr','_global_reps_for_edges','_global_reps_for_nodes'
+          'edges','nodes','senders','receivers','n_edges','n_nodes','global_attr','global_reps_for_edges','global_reps_for_nodes'
 
         """
         d_ = d.copy() # A working on a copy of d (for tf.function compilation requirement).
