@@ -437,6 +437,63 @@ class TestTraced_eval(unittest.TestCase):
         self.assertTrue(nodes_err < 1e-10)
         self.assertTrue(glob_err < 1e-10)
 
+class TestHighLevel(unittest.TestCase):
+    """
+    Test for high-level classes that create composite GNs
+    """
+    def test_graphnet_mlp(self):
+        """
+        Tests the basic encode-core-decode GN:
+        """
+        import tensorflow as tf
+        import numpy as np
+        from tf_gnns import GraphNetMLP, GraphNetMPNN_MLP
+        from tf_gnns import GraphTuple
+
+        def _get_tensor_dict():
+            edges = tf.constant(np.random.randn(5, 123))
+            nodes = tf.constant(np.random.randn(5, 123))
+            senders, receivers = [tf.constant(v) for v in [[0,0,0,0,0], [0,1,2,3,4]]]
+            gt_in = GraphTuple(nodes,edges,
+                senders, receivers,
+                n_nodes = [nodes.shape[0]],
+                n_edges = [len(receivers)]
+            )
+            td = gt_in.to_tensor_dict()
+            return td 
+
+        td = _get_tensor_dict()
+        td['global_attr'] = [None]
+        gn = GraphNetMLP(32)
+        res= gn(td)
+
+    def test_graphnet_mpnn_mlp(self):
+
+        import tensorflow as tf
+        import numpy as np
+        from tf_gnns import GraphNetMLP, GraphNetMPNN_MLP
+        from tf_gnns import GraphTuple
+
+        def _get_tensor_dict():
+            edges = tf.constant(np.random.randn(5, 123))
+            nodes = tf.constant(np.random.randn(5, 123))
+            senders, receivers = [tf.constant(v) for v in [[0,0,0,0,0], [0,1,2,3,4]]]
+            gt_in = GraphTuple(nodes,edges,
+                senders, receivers,
+                n_nodes = [nodes.shape[0]],
+                n_edges = [len(receivers)]
+            )
+            td = gt_in.to_tensor_dict()
+            return td 
+
+        td = _get_tensor_dict()
+        td['global_attr'] = [None]
+        gn = GraphNetMLP(32)
+        res= gn(td)
+
+        td = _get_tensor_dict()
+        gn2 = GraphNetMPNN_MLP(32)
+        res= gn2(td)
 
 
 if __name__ == "__main__":

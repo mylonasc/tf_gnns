@@ -1,4 +1,5 @@
-from tf_gnns.graphnet_utils import make_full_graphnet_functions, make_graph_indep_graphnet_functions, make_graph_to_graph_and_global_functions, _aggregation_function_factory
+from tf_gnns.graphnet_utils import make_full_graphnet_functions, make_mlp_graphnet_functions
+from tf_gnns.graphnet_utils import make_graph_indep_graphnet_functions, make_graph_to_graph_and_global_functions, _aggregation_function_factory
 from tf_gnns.graphnet_utils import GraphNet 
 
 from tf_gnns.lib.gt_ops import _assign_add_tensor_dict
