@@ -1651,6 +1651,8 @@ def make_graph_indep_graphnet_functions(units,
         global_input_size = None,
         global_output_size = None,
         aggregation_function = 'mean',
+        create_global_function = True,
+        use_global_input= True,
         **kwargs):
 
     """
@@ -1707,6 +1709,8 @@ def make_graph_indep_graphnet_functions(units,
                                         create_global_function=True, 
                                         graph_indep=True,
                                         aggregation_function = aggregation_function,
+                                        create_global_function = create_global_function,
+                                        use_global_input = use_global_input, 
                                         **kwargs)
 
 
