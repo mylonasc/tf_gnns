@@ -1703,14 +1703,12 @@ def make_graph_indep_graphnet_functions(units,
                                         edge_output_size = edge_output_size,
                                         global_output_size = global_output_size,
                                         global_input_size = global_input_size,
-                                        use_global_input = True,
+                                        use_global_input = use_global_input,
                                         use_global_to_edge=False,
                                         use_global_to_node=False,
-                                        create_global_function=True, 
+                                        create_global_function=create_global_function, 
                                         graph_indep=True,
                                         aggregation_function = aggregation_function,
-                                        create_global_function = create_global_function,
-                                        use_global_input = use_global_input, 
                                         **kwargs)
 
 
