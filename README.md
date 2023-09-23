@@ -22,6 +22,7 @@ pip install tf_gnns
 
 ## `tf_gnns` basics
 You may inspect some basic functionality on the following colab notebook:
+
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/mylonasc/tf_gnns/blob/main/notebooks/01_tf_gnn_basics.ipynb)
 
 
@@ -45,10 +46,9 @@ From some initial tests the performance of the `tf_gnns` library seems to be at 
 # Publications using `tf_gnns`
 The library has been used so far in the following publications:
 
-\[1\][Bayesian graph neural networks for strain-based crack localization](https://arxiv.org/abs/2012.06791) 
+\[1\] [Bayesian graph neural networks for strain-based crack localization](https://arxiv.org/abs/2012.06791) 
 
-\[2\][Remaining Useful Life Estimation Under Uncertainty with Causal GraphNets](https://arxiv.org/abs/2011.11740)
-
-
+\[2\] [Remaining Useful Life Estimation Under Uncertainty with Causal GraphNets](https://arxiv.org/abs/2011.11740)
+\[3\] [Relational VAE: A Continuous Latent Variable Model for Graph Structured Data](https://arxiv.org/abs/2106.16049)
 
 
