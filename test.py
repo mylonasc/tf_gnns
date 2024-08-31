@@ -229,7 +229,7 @@ class TestGraphNet(unittest.TestCase):
         node_input_size = 10
         edge_input_size = 10
         def _new_node():
-            return tf.constant(np.random.randn(batch_size,node_input_size))
+            return Node(tf.constant(np.random.randn(batch_size,node_input_size)))
         def _new_edge(from_node, to_node):
             edge_dat = tf.constant(np.random.randn(batch_size, edge_input_size))
             return Edge(edge_dat, node_from=from_node, node_to=to_node)
