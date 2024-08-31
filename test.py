@@ -107,10 +107,10 @@ class TestGraphNet(unittest.TestCase):
         batch_size = 6
 
         # The naive implementation:
-        v1,v2,v3 = [np.ones([batch_size, node_input_size])*k for k in range(3)]
+        v1,v2,v3 = [tf.constant(np.ones([batch_size, node_input_size])*k) for k in range(3)]
         n1 , n2, n3 = [Node(v_) for v_ in [v1,v2,v3]]
-        e21 = Edge(np.ones([batch_size, node_input_size])*0., node_from = n2, node_to = n1)
-        e31 = Edge(np.ones([batch_size, node_input_size])*10, node_from = n3, node_to = n1)
+        e21 = Edge(tf.constant(np.ones([batch_size, node_input_size])*0.), node_from = n2, node_to = n1)
+        e31 = Edge(tf.constant(np.ones([batch_size, node_input_size])*10), node_from = n3, node_to = n1)
 
         #** The "None" is the actual batch dimension during computation with the Naive evaluators 
         # ("safe" and "batched"). Reduction happens w.r.t. 1st dimension which enumerates incoming edges.
