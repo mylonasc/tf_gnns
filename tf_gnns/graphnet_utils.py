@@ -58,7 +58,7 @@ def _maybe_make_tuple(_v):
         if isinstance(_v, int):
             return (_v, )
         if isinstance(_v, list):
-            return tuple(*_v)
+            return tuple(_v)
     return _v
 
 
@@ -1146,9 +1146,6 @@ def make_node_mlp(units,
     with tf.name_scope("node_fn") as scope:
         kwargs['model_name'] = scope + 'model'
         kwargs['model_name'] = kwargs['model_name'].replace('/','-')
-        print(kwargs['model_name'])
-        print(kwargs)
-        print('-----***'*10)
         return make_mlp(units, all_inputs , node_emb_size, activation = activation, **kwargs)
 
 
