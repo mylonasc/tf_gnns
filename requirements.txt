@@ -1,2 +1,4 @@
 tensorflow>=2.0
 numpy>=1.0
+tensorflow_probability>=0.24
+tf_keras>=2.17
