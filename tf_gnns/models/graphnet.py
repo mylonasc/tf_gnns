@@ -115,7 +115,7 @@ class GraphNetMLP(tf.keras.layers.Layer):
         self.all_weights = []
 
     def build(self,  d_shapes):
-
+        # print(d_shapes)
         node_input_size, edge_input_size = d_shapes['nodes'][-1], d_shapes['edges'][-1]
 
         if 'global_attr' in d_shapes.keys():

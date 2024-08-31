@@ -489,7 +489,7 @@ class TestHighLevel(unittest.TestCase):
             return td 
 
         td = _get_tensor_dict()
-        td['global_attr'] = [None]
+        del td['global_attr'] 
         gn = GraphNetMLP(32)
         res= gn(td)
 
