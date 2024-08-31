@@ -510,10 +510,10 @@ class TestHighLevel(unittest.TestCase):
                 n_edges = [len(receivers)]
             )
             td = gt_in.to_tensor_dict()
+            del td['global_attr']
             return td 
 
         td = _get_tensor_dict()
-        td['global_attr'] = [None]
         gn = GraphNetMLP(32)
         res= gn(td)
 

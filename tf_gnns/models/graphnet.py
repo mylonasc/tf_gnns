@@ -115,9 +115,7 @@ class GraphNetMLP(tf.keras.layers.Layer):
         self.all_weights = []
 
     def build(self,  d_shapes):
-        # print(d_shapes)
         node_input_size, edge_input_size = d_shapes['nodes'][-1], d_shapes['edges'][-1]
-
         if 'global_attr' in d_shapes.keys():
             global_input_size = d_shapes['global_attr'][-1]
         else:
@@ -149,7 +147,7 @@ class GraphNetMLP(tf.keras.layers.Layer):
                                                       global_input_size       = global_input_size,
                                                       global_output_size      = self.core,
                                                       edge_output_size        = self.core))
-        g_core_determ_list = [];
+        g_core_determ_list = []
         for c_ in range(self.core_steps):
             if (c_ == 0) or ((not self._is_recurrent) and c_ > 0):
                 g = GraphNet(**make_full_graphnet_functions(self.core_units,
@@ -180,7 +178,6 @@ class GraphNetMLP(tf.keras.layers.Layer):
         self.all_weights.extend([*self.g_enc_determ.weights, *core_weights, *self.g_dec_determ.weights])
         self.g_core_determ = g_core_determ_list
 
-
     def _repr_html_(self):
 
         s = ''
@@ -198,21 +195,13 @@ class GraphNetMLP(tf.keras.layers.Layer):
         return s
 
     def call(self, g_):
-
         g_ = self.g_enc_determ.eval_tensor_dict(g_)
-
         for _gn in self.g_core_determ:
-
             go_ = _gn.eval_tensor_dict(g_)
-
             if self.is_residual:
-
                 g_ = _assign_add_tensor_dict(g_, go_)
-
             else:
-
                 g_ = go_
-
         g_ = self.g_dec_determ.eval_tensor_dict(g_)
         return g_
 
