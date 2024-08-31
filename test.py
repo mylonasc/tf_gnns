@@ -40,17 +40,24 @@ class TestGraphDatastructures(unittest.TestCase):
         batch_size = 1
         node_input_size = 2
         edge_input_size = 2
-        n1 = Node(np.random.randn(batch_size,node_input_size))
-        n2 = Node(np.random.randn(batch_size, node_input_size))
-        n3 = Node(np.random.randn(batch_size, node_input_size))
-        n4 = Node(np.random.randn(batch_size, node_input_size))
-        n5 = Node(np.random.randn(batch_size, node_input_size))
+        
+        def _make_node_dat():
+            return tf.constant(np.random.randn(batch_size,node_input_size))
+        
+        def _make_edge_dat():
+            return tf.constant(np.random.randn(batch_size,edge_input_size))
+        
+        n1 = Node(_make_node_dat())
+        n2 = Node(_make_node_dat())
+        n3 = Node(_make_node_dat())
+        n4 = Node(_make_node_dat())
+        n5 = Node(_make_node_dat())
 
-        e12 = Edge(np.random.randn(batch_size, edge_input_size),node_from = n1,node_to = n2)
-        e21 = Edge(np.random.randn(batch_size, edge_input_size),node_from = n2,node_to = n1)
-        e23 = Edge(np.random.randn(batch_size, edge_input_size),node_from = n2,node_to = n3)
-        e34 = Edge(np.random.randn(batch_size, edge_input_size), node_from = n3, node_to = n4)
-        e45 = Edge(np.random.randn(batch_size, edge_input_size), node_from = n4, node_to = n5)
+        e12 = Edge(_make_edge_dat(),node_from = n1,node_to = n2)
+        e21 = Edge(_make_edge_dat(),node_from = n2,node_to = n1)
+        e23 = Edge(_make_edge_dat(),node_from = n2,node_to = n3)
+        e34 = Edge(_make_edge_dat(), node_from = n3, node_to = n4)
+        e45 = Edge(_make_edge_dat(), node_from = n4, node_to = n5)
 
         g1 = Graph([n1,n2],[e12])
         g2 = Graph([n1,n2,n3,n4],[e12,e21,e23,e34])
@@ -76,9 +83,16 @@ class TestGraphNet(unittest.TestCase):
         edge_aggregation_function = make_keras_simple_agg(edge_output_size,'mean')
         graphnet = GraphNet(node_function = node_function, edge_function = edge_function, edge_aggregation_function = edge_aggregation_function)
         batch_size = 10
-        n1 = Node(np.random.randn(batch_size,node_input_size))
-        n2 = Node(np.random.randn(batch_size, node_input_size))
-        e12 = Edge(np.random.randn(batch_size, edge_input_size),node_from = n1,node_to = n2)
+                
+        def _make_node_dat():
+            return tf.constant(np.random.randn(batch_size,node_input_size))
+        
+        def _make_edge_dat():
+            return tf.constant(np.random.randn(batch_size,edge_input_size))
+        
+        n1 = Node(_make_node_dat())
+        n2 = Node(_make_node_dat())
+        e12 = Edge(_make_edge_dat(),node_from = n1,node_to = n2)
         g = Graph([n1,n2],[e12])
 
     def test_mean_max_aggregator(self):
@@ -106,10 +120,10 @@ class TestGraphNet(unittest.TestCase):
         agg_edge_state_input = tf.keras.layers.Input(shape = (message_shape,), name = "edge_state_agg")
         edge_input = tf.keras.layers.Input(shape = (edge_input_size,), name = "edge_state")
 
-        node_function = tf.keras.Model(outputs = tf.identity(node_input),
+        node_function = tf.keras.Model(outputs = node_input,
                 inputs = [agg_edge_state_input, node_input],name = "node_function")
 
-        edge_function = tf.keras.Model(outputs = tf.identity(edge_input),
+        edge_function = tf.keras.Model(outputs = edge_input,
                 inputs = [edge_input])
 
         gn = GraphNet(node_function = node_function, 
@@ -136,14 +150,20 @@ class TestGraphNet(unittest.TestCase):
         node_input_size = 10
         edge_input_size = node_input_size
 
-        n1 = Node(np.random.randn(batch_size,node_input_size))
-        n2 = Node(np.random.randn(batch_size, node_input_size))
-        n3 = Node(np.random.randn(batch_size, node_input_size))
+        def _make_node_dat():
+            return tf.constant(np.random.randn(batch_size,node_input_size))
+        
+        def _make_edge_dat():
+            return tf.constant(np.random.randn(batch_size,edge_input_size))
+        
+        n1 = Node(_make_node_dat())
+        n2 = Node(_make_node_dat())
+        n3 = Node(_make_node_dat())
         node_abs_vals = [np.abs(n.node_attr_tensor) for n in [n1,n2,n3]]
 
-        e12 = Edge(np.random.randn(batch_size, edge_input_size),node_from = n1,node_to = n2)
-        e21 = Edge(np.random.randn(batch_size, edge_input_size),node_from = n2,node_to = n1)
-        e23 = Edge(np.random.randn(batch_size, edge_input_size),node_from = n2,node_to = n3)
+        e12 = Edge(_make_edge_dat(),node_from = n1,node_to = n2)
+        e21 = Edge(_make_edge_dat(),node_from = n2,node_to = n1)
+        e23 = Edge(_make_edge_dat(),node_from = n2,node_to = n3)
         edge_abs_vals = [np.abs(e.edge_tensor) for e in [e12,e21,e23]]
 
         g1 = Graph([n1,n2,n3],[e12,e21,e23])
