@@ -771,7 +771,7 @@ class GraphNet:
         for model_fcn, label in zip(functions, path_labels):
             if model_fcn is not None:
                 d_ = os.path.join(path,label)
-                model_fcn.save(d_)
+                model_fcn.save(d_ + '.keras')
                 
     @staticmethod
     def load_graph_functions(path):
@@ -787,7 +787,7 @@ class GraphNet:
             
         avail_functions = os.listdir(path) # the path should have appropriately named folders that correspond to the diffferent graph functions. All are keras models.
         for l in function_rel_paths:
-            d_ = os.path.join(path,l)
+            d_ = os.path.join(path,l) + '.keras'
             if not os.path.exists(d_):
                 print("path %s does not exist! Function %s will not be constructed."%(d_,l))
                 
@@ -880,7 +880,7 @@ class GraphNet:
             
         for model_fcn, label in zip(functions, path_labels):
             if model_fcn is not None:
-                d_ = os.path.join(path,label)
+                d_ = os.path.join(path,label) + '.keras'
                 model_fcn.save(d_)
                 
     @staticmethod
@@ -918,7 +918,7 @@ class GraphNet:
             
         for model_fcn, label in zip(functions, path_labels):
             if model_fcn is not None:
-                d_ = os.path.join(path,label)
+                d_ = os.path.join(path,label) + '.keras'
                 model_fcn.save(d_)
                 
     @staticmethod
