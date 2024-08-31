@@ -228,17 +228,23 @@ class TestGraphNet(unittest.TestCase):
         batch_size = 1
         node_input_size = 10
         edge_input_size = 10
-        n1 = Node(np.random.randn(batch_size,node_input_size))
-        n2 = Node(np.random.randn(batch_size, node_input_size))
-        n3 = Node(np.random.randn(batch_size, node_input_size))
-        n4 = Node(np.random.randn(batch_size, node_input_size))
-        n5 = Node(np.random.randn(batch_size, node_input_size))
+        def _new_node():
+            return tf.constant(np.random.randn(batch_size,node_input_size))
+        def _new_edge(from_node, to_node):
+            edge_dat = tf.constant(np.random.randn(batch_size, edge_input_size))
+            return Edge(edge_dat, node_from=from_node, node_to=to_node)
+        
+        n1 = _new_node()
+        n2 = _new_node()
+        n3 = _new_node()
+        n4 = _new_node()
+        n5 = _new_node()
 
-        e12 = Edge(np.random.randn(batch_size, edge_input_size),node_from = n1,node_to = n2)
-        e21 = Edge(np.random.randn(batch_size, edge_input_size),node_from = n2,node_to = n1)
-        e23 = Edge(np.random.randn(batch_size, edge_input_size),node_from = n2,node_to = n3)
-        e34 = Edge(np.random.randn(batch_size, edge_input_size), node_from = n3, node_to = n4)
-        e45 = Edge(np.random.randn(batch_size, edge_input_size), node_from = n4, node_to = n5)
+        e12 = _new_edge(n1,n2)
+        e21 = _new_edge(n2, n1)
+        e23 = _new_edge(n2, n3)
+        e34 = _new_edge(n3, n4)
+        e45 = _new_edge(n4, n5)
 
         g1 = Graph([n1,n2],[e12]).copy()
         g2 = Graph([n1,n2,n3,n4],[e12,e21,e23,e34]).copy()

@@ -666,7 +666,7 @@ class GraphNet:
           'edges','nodes','senders','receivers','n_edges','n_nodes','global_attr','global_reps_for_edges','global_reps_for_nodes'
 
         """
-        d_ = d.copy() # A working on a copy of d (for tf.function compilation requirement).
+        d_ = d.copy() # Working on a copy of d (for tf.function compilation requirement).
         if self.edge_function is not None:
             new_edges = self.edge_block(**d_)
             d_['edges'] = new_edges
@@ -722,7 +722,7 @@ class GraphNet:
 
         # For GraphIndependent there are actualy no messages to be passed... 
         # I made a vector of zeros to treat 
-        edge_to_node_agg_dummy = np.zeros([batch_size, edge_message_size]);
+        edge_to_node_agg_dummy = np.zeros([batch_size, edge_message_size])
 
         # Compute the edge-aggregated messages:
         
