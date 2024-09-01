@@ -8,6 +8,10 @@
 |2.15 | ![alt-img](doc/shields/tf2.15.svg) | 
 |2.17 | ![alt-img](doc/shields/tf2.17.svg) | 
 
+There are some un-resolved bugs with the latest tensorflow versions, due to the on-going transition from keras 2 to keras 3 some of the problems are already resolved, but there are some flaky parts in the code currently.
+Since I develop this single-handedly, I will wait for the dust to settle with keras 3.
+At the moment it is recommended to use version `tensorflow==2.15` or earlier. 
+
 # `tf_gnns` - A Hackable GraphNets library
 ![alt-img](https://raw.githubusercontent.com/mylonasc/tf_gnns/main/doc/figures/tfgnns_logo2.png)
 A library for easy construction of message-passing networks in tensorflow keras.
