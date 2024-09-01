@@ -30,13 +30,9 @@ from collections import OrderedDict
 import tensorflow as tf
 import tensorflow.keras as keras
 from tensorflow.keras import Sequential,Model
-from tensorflow.keras.layers import Input, Dense, Conv1D, GlobalAveragePooling1D, Dropout
+from tensorflow.keras.layers import Input, Dense, Conv1D,\
+        GlobalAveragePooling1D, Dropout, Layer
 
-if tf.__version__[:4] == '2.17':
-    Layer = tf.keras.Layer
-    Layer = tf.keras.layers.Layer
-else:
-    Layer = tf.keras.layers.Layer
 
 import tensorflow_probability as tfp
 from tf_gnns.datastructures import Graph, GraphTuple
