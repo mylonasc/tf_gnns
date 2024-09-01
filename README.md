@@ -1,3 +1,4 @@
+
 # `tf_gnns` - A Hackable GraphNets library
 ![alt-img](https://raw.githubusercontent.com/mylonasc/tf_gnns/main/doc/figures/tfgnns_logo2.png)
 A library for easy construction of message-passing networks in tensorflow keras.
@@ -13,10 +14,35 @@ The main motivation for this library was the absense of a relatively short and e
 GNN implementations which take advantage of `tensorflow_probability` functionality are to be released in the future (as the one used in \[2\]).
 
 ## Installing `tf_gnns`
+Currently `tensorflow==2.17` and `tensorflow_probability==0.24` are not supported since there are some bugs introduced which I haven't resolved. 
+All tests pass with `tensorflow==2.15` and `tensorflow_probability==0.22`.
 Install with `pip`:
 ```
+pip install tensorflow==2.15
+pip install tensorflow_probability==0.22
 pip install tf_gnns
 ```
+## Use through Docker
+
+You can run build a dockerfile that uses `tf_gnns` with the following command, based on an Ubuntu22 OS:
+
+```
+docker build . -t tf_gnns_215 --network host  --build-arg TENSORFLOW_VERSION=2.15
+```
+
+The container implements some logic to sort out the necessary dependencies. Namely, 
+ * Numpy 1.x is required for tf <= 2.14
+ * Keras 2 support needs to be enabled for tf >= 2.16
+ * The `tensorflow_probability` version is selected through a mapping given the tensorflow version.
+
+## Tensorflow versions and `tf_gnns`
+
+|tf   | Tests status |
+|-----|----|
+|2.13 | ![alt-img](doc/shields/tf2.13.svg) | 
+|2.14 | ![alt-img](doc/shields/tf2.14.svg) | 
+|2.15 | ![alt-img](doc/shields/tf2.15.svg) | 
+|2.17 | ![alt-img](doc/shields/tf2.17.svg) | 
 
 # Examples
 
