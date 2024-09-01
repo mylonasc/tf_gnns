@@ -5,7 +5,6 @@ from tf_gnns.graphnet_utils import GraphNet
 from tf_gnns.lib.gt_ops import _assign_add_tensor_dict
 
 import tensorflow as tf
-import IPython
 
 
 class GNCellMLP(tf.keras.layers.Layer):

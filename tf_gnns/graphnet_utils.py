@@ -34,6 +34,7 @@ from tensorflow.keras.layers import Input, Dense, Conv1D, GlobalAveragePooling1D
 
 if tf.__version__[:4] == '2.17':
     Layer = tf.keras.Layer
+    Layer = tf.keras.layers.Layer
 else:
     Layer = tf.keras.layers.Layer
 
