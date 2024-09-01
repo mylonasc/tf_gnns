@@ -31,6 +31,12 @@ import tensorflow as tf
 import tensorflow.keras as keras
 from tensorflow.keras import Sequential,Model
 from tensorflow.keras.layers import Input, Dense, Conv1D, GlobalAveragePooling1D, Dropout
+
+if tf.__version__[:4] == '2.17':
+    Layer = tf.keras.Layer
+else:
+    Layer = tf.keras.layers.Layer
+
 import tensorflow_probability as tfp
 from tf_gnns.datastructures import Graph, GraphTuple
 tfd = tfp.distributions
@@ -1260,7 +1266,8 @@ DICT_AGG = {
     'min'  : (tf.reduce_min,unsorted_segment_min_or_zero)}
 
 
-class SimpleAggLayerDense(tf.keras.Layer):
+
+class SimpleAggLayerDense(Layer):
     """Creates a simple aggregator layer (dense)
     """
     def __init__(self, agg_type = 'mean', *args, **kwargs):
@@ -1270,7 +1277,7 @@ class SimpleAggLayerDense(tf.keras.Layer):
         _agg = DICT_AGG[self.agg_type][0]
         return _agg(x, 0)
 
-class SimpleAggLayerSparse(tf.keras.Layer):
+class SimpleAggLayerSparse(Layer):
     """Creates a sparse aggregator layer (for use with GraphTuples)
     """
     def __init__(self, agg_type = 'mean', *args, **kwargs):
