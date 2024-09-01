@@ -1,4 +1,13 @@
 
+## Tensorflow versions and `tf_gnns`
+
+|tf   | Tests status |
+|-----|----|
+|2.13 | ![alt-img](doc/shields/tf2.13.svg) | 
+|2.14 | ![alt-img](doc/shields/tf2.14.svg) | 
+|2.15 | ![alt-img](doc/shields/tf2.15.svg) | 
+|2.17 | ![alt-img](doc/shields/tf2.17.svg) | 
+
 # `tf_gnns` - A Hackable GraphNets library
 ![alt-img](https://raw.githubusercontent.com/mylonasc/tf_gnns/main/doc/figures/tfgnns_logo2.png)
 A library for easy construction of message-passing networks in tensorflow keras.
@@ -35,14 +44,6 @@ The container implements some logic to sort out the necessary dependencies. Name
  * Keras 2 support needs to be enabled for tf >= 2.16
  * The `tensorflow_probability` version is selected through a mapping given the tensorflow version.
 
-## Tensorflow versions and `tf_gnns`
-
-|tf   | Tests status |
-|-----|----|
-|2.13 | ![alt-img](doc/shields/tf2.13.svg) | 
-|2.14 | ![alt-img](doc/shields/tf2.14.svg) | 
-|2.15 | ![alt-img](doc/shields/tf2.15.svg) | 
-|2.17 | ![alt-img](doc/shields/tf2.17.svg) | 
 
 # Examples
 
