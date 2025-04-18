@@ -33,9 +33,6 @@ from tensorflow.keras import Sequential,Model
 from tensorflow.keras.layers import Input, Dense, Conv1D,\
         GlobalAveragePooling1D, Dropout, Layer
 
-# from tf_gnns.tf_gnns.tfgnns_datastructures import Graph, GraphTuple
-# from tf_gnns.tf_gnns.tfgnns_datastructures import GraphTuple
-
 # Try to load tfp - of not just print something to let the user know that 
 # they need to do their own probabilsitic ML stuff.
 try:

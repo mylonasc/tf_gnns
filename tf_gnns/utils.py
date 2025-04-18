@@ -1,5 +1,5 @@
 import numpy as np
-from .datastructures import Node, Edge,Graph 
+from .tfgnns_datastructures import Node, Edge,Graph 
 
 
 
