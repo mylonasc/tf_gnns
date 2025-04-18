@@ -1349,9 +1349,9 @@ def make_mean_max_min_agg(input_size):
     # v2 = tf.reduce_max(x,0)
     # v3 = tf.reduce_min(x,0)
     # agg_out = tf.concat([v1,v2, v3],axis = -1)
-    v1 = SimpleAggLayerDense(agg_type='mean')
-    v2 = SimpleAggLayerDense(agg_type='max')
-    v3 = SimpleAggLayerDense(agg_type='min')
+    v1 = SimpleAggLayerDense(agg_type='mean')(x)
+    v2 = SimpleAggLayerDense(agg_type='max')(x)
+    v3 = SimpleAggLayerDense(agg_type='min')(x)
     agg_out = tf.keras.layers.Concatenate()([v1,v2,v3])
     m_basic = tf.keras.Model(inputs = x , outputs = agg_out, name = 'basic_meanmaxmin_aggregator')
 
@@ -1363,25 +1363,13 @@ def make_mean_max_min_agg(input_size):
     return m_basic, tf_function_agg
 
 def make_mean_max_min_sum_agg(input_size):
-    """
-    A mean, a max and a min aggregator appended together. This was is useful for some special use-cases.
-
-    Inpsired by:
-    Corso, Gabriele, et al. "Principal neighbourhood aggregation for graph nets." arXiv preprint arXiv:2004.05718 (2020).
-    """
-    x = Input(shape = input_size, name = "edge_messages")
-    # v1 = tf.reduce_mean(x,0)
-    # v2 = tf.reduce_max(x,0)
-    # v3 = tf.reduce_min(x,0)
-    # v4 = tf.reduce_sum(x,0)
-    # agg_out = tf.concat([v1,v2, v3, v4],axis = -1)
-    v1 = SimpleAggLayerDense(agg_type='mean')
-    v2 = SimpleAggLayerDense(agg_type='max')
-    v3 = SimpleAggLayerDense(agg_type='min')
-    v4 = SimpleAggLayerDense(agg_type='sum')
+    x = tf.keras.Input(shape = input_size)
+    v1 = SimpleAggLayerDense(agg_type='mean')(x) 
+    v2 = SimpleAggLayerDense(agg_type='max')(x)  
+    v3 = SimpleAggLayerDense(agg_type='min')(x)  
+    v4 = SimpleAggLayerDense(agg_type='sum')(x)  
     agg_out = tf.keras.layers.Concatenate()([v1,v2,v3,v4])
     m_basic = tf.keras.Model(inputs = x , outputs = agg_out, name = 'basic_meanmaxminsum_aggregator')
-
     def tf_function_agg(x, recv, max_seq):
         v1,v2,v3,v4 = tf.math.unsorted_segment_mean(x,recv,max_seq), tf.math.unsorted_segment_max(x,recv, max_seq) , tf.math.unsorted_segment_min(x, recv,max_seq), tf.math.unsorted_segment_sum(x, recv, max_seq)
         agg_ss = tf.concat([v1,v2, v3, v4], axis = -1)
