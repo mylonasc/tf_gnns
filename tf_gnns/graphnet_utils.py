@@ -33,14 +33,20 @@ from tensorflow.keras import Sequential,Model
 from tensorflow.keras.layers import Input, Dense, Conv1D,\
         GlobalAveragePooling1D, Dropout, Layer
 
+# from tf_gnns.tf_gnns.tfgnns_datastructures import Graph, GraphTuple
+# from tf_gnns.tf_gnns.tfgnns_datastructures import GraphTuple
 
-import tensorflow_probability as tfp
-from tf_gnns.datastructures import Graph, GraphTuple
-tfd = tfp.distributions
+# Try to load tfp - of not just print something to let the user know that 
+# they need to do their own probabilsitic ML stuff.
+try:
+    import tensorflow_probability as tfp    
+    tfd = tfp.distributions
+except:
+    print("Info: Tensorflow probability (tfp) is not available. Some functionality depending on legacy tfp will not be directly available.")
 
 import numpy as np
 
-from .datastructures import Graph
+from .tfgnns_datastructures import Graph, GraphTuple
 
 
 # The following stores how larger is the aggregation operation 
@@ -132,6 +138,8 @@ except:
     
 
 def _instantiate_gamma(t, NParams_ = 1):
+    if 'tfd' not in locals():
+        raise Exception("You tried to call a function that depends on a legacy version of tensorflow probability. Please install a compatible version or refactor the code to use newer tfp versions.")
     return tfd.Gamma(concentration = t[...,0:NParams_], rate = t[...,NParams_:2*NParams_])
 
 def _split_tensor_dict_to_repar(td, nlatent_nodes_or_all, nlatent_edges = None, nlatent_global = None):
