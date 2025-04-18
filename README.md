@@ -40,8 +40,9 @@ All tests pass with `tensorflow==2.15` and `tensorflow_probability==0.22`, and i
 
 Install with `pip`:
 ```
-pip install tensorflow==2.15
-pip install tensorflow_probability==0.22
+# optional - recommended:
+# pip install tensorflow==2.15 
+# pip install tensorflow_probability==0.22
 pip install tf_gnns
 ```
 ## Use through Docker
