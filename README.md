@@ -3,10 +3,10 @@
 
 |tf   | Tests status |
 |-----|----|
-|2.13 | ![alt-img](doc/shields/tf2.13.svg) | 
-|2.14 | ![alt-img](doc/shields/tf2.14.svg) | 
-|2.15 | ![alt-img](doc/shields/tf2.15.svg) | 
-|2.17 | ![alt-img](doc/shields/tf2.17.svg) | 
+|2.13 | ![alt-img](https://raw.githubusercontent.com/mylonasc/tf_gnns/refs/heads/main/doc/shields/tf2.13.svg) | 
+|2.14 | ![alt-img](https://raw.githubusercontent.com/mylonasc/tf_gnns/refs/heads/main/doc/shields/tf2.14.svg) | 
+|2.15 | ![alt-img](https://raw.githubusercontent.com/mylonasc/tf_gnns/refs/heads/main/doc/shields/tf2.13.svg) | 
+|2.17 | ![alt-img](https://raw.githubusercontent.com/mylonasc/tf_gnns/refs/heads/main/doc/shields/tf2.13.svg) | 
 
 <details>
 <summary>Further info</summary>
@@ -24,14 +24,20 @@ The `tf_gnns` library has no external dependencies except tensorflow 2.x (there 
 It implements some alternative design constraints from `graph_nets` taking advantage of some facilities keras provides to make complex models easily and without large drops in performance.
 
 `tf_gnns` is built to support arbitrary node/edge/global attributes and update functions.
-A set of convenience functions providing MLP construction with keras are also provided (i.e., handling input/output sizes for valid networks) that replaces sonnet.
+A set of utility functions providing MLP construction with keras are also provided (i.e., handling input/output sizes for valid networks) that replaces sonnet.
 
 The main motivation for this library was the absense of a relatively short and efficient implementation of GNNs that was explicitly created to take advantage of keras's functionalities.
 GNN implementations which take advantage of `tensorflow_probability` functionality are to be released in the future (as the one used in \[2\]).
 
 ## Installing `tf_gnns`
-Currently `tensorflow==2.17` and `tensorflow_probability==0.24` are not supported since there are some bugs introduced which I haven't resolved. 
-All tests pass with `tensorflow==2.15` and `tensorflow_probability==0.22`.
+---
+**NOTE**
+
+Currently `tensorflow==2.17` and `tensorflow_probability==0.24` have one test failing. The failure is related to a validation that tests between two different computation modes - namely the `GraphTuple` (efficient) and `Graph` computation mode (not efficient - does not use `unsorted_segment_sum` and other sparse aggregations). I have not resolved the source of the issue yet, but it could be some benign deviation due to changes in the order of operations that happen for low-level kernels. 
+
+All tests pass with `tensorflow==2.15` and `tensorflow_probability==0.22`, and it is therefore recommended to use these. 
+---
+
 Install with `pip`:
 ```
 pip install tensorflow==2.15
