@@ -34,8 +34,8 @@ GNN implementations which take advantage of `tensorflow_probability` functionali
 **NOTE**
 
 Currently `tensorflow==2.17` and `tensorflow_probability==0.24` have one test failing. The failure is related to a validation that tests between two different computation modes - namely the `GraphTuple` (efficient) and `Graph` computation mode (not efficient - does not use `unsorted_segment_sum` and other sparse aggregations). I have not resolved the source of the issue yet, but it could be some benign deviation due to changes in the order of operations that happen for low-level kernels. 
-
 All tests pass with `tensorflow==2.15` and `tensorflow_probability==0.22`, and it is therefore recommended to use these. 
+
 ---
 
 Install with `pip`:
