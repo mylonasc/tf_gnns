@@ -5,8 +5,8 @@
 |-----|----|
 |2.13 | ![alt-img](https://raw.githubusercontent.com/mylonasc/tf_gnns/refs/heads/main/doc/shields/tf2.13.svg) | 
 |2.14 | ![alt-img](https://raw.githubusercontent.com/mylonasc/tf_gnns/refs/heads/main/doc/shields/tf2.14.svg) | 
-|2.15 | ![alt-img](https://raw.githubusercontent.com/mylonasc/tf_gnns/refs/heads/main/doc/shields/tf2.13.svg) | 
-|2.17 | ![alt-img](https://raw.githubusercontent.com/mylonasc/tf_gnns/refs/heads/main/doc/shields/tf2.13.svg) | 
+|2.15 | ![alt-img](https://raw.githubusercontent.com/mylonasc/tf_gnns/refs/heads/main/doc/shields/tf2.15.svg) | 
+|2.17 | ![alt-img](https://raw.githubusercontent.com/mylonasc/tf_gnns/refs/heads/main/doc/shields/tf2.17.svg) | 
 
 <details>
 <summary>Further info</summary>
