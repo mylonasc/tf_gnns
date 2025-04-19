@@ -205,7 +205,7 @@ class GraphNetMLP(tf.keras.layers.Layer):
         return g_
 
 
-class GraphIndepNoGlobal(tf.keras.layers.Layer):
+class GraphIndep(tf.keras.layers.Layer):
     """
     A single graph-independent block.without global attrs.
     """
@@ -224,7 +224,7 @@ class GraphIndepNoGlobal(tf.keras.layers.Layer):
             if k in kwargs.keys():
                 layer_constr_kwargs.update({k : kwargs[k]})
                 kwargs.pop(k)
-        super(GraphIndepNoGlobal, self).__init__(*args, **kwargs)
+        super(GraphIndep, self).__init__(*args, **kwargs)
         self.layer_constr_kwargs  = layer_constr_kwargs
 
         self.units = units_out
