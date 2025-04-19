@@ -252,7 +252,6 @@ class GraphIndep(tf.keras.layers.Layer):
         return s
 
     def build(self,input_shape):
-        print(input_shape)
         if 'global_attr' in input_shape:
             gnfns = make_graph_indep_graphnet_functions(self._gn_mlp_units,
                 node_or_core_input_size  = input_shape['nodes'][1],
