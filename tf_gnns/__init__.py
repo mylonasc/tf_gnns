@@ -7,5 +7,14 @@ from .graphnet_utils  import GraphNet, make_node_mlp, make_edge_mlp, make_keras_
 from .graphnet_utils  import _aggregation_function_factory, make_full_graphnet_functions, make_graph_indep_graphnet_functions, make_graph_to_graph_and_global_functions
 from .lib.gt_ops      import _add_gt, _assign_add_tensor_dict, _concat_tensordicts, _copy_structure, _slice_conc_tensordict, _zero_graph, _zero_graph_tf 
 from .models.graphnet import GraphNetMLP, GraphIndep, GNCellMLP, GraphNetMPNN_MLP
-print("loaded tfgnn lib")
+
+try:
+    from importlib.metadata import version, PackageNotFoundError
+except ImportError:  # Python < 3.8
+    from importlib_metadata import version, PackageNotFoundError
+
+try:
+    __version__ = version("tf_gnns")
+except PackageNotFoundError:
+    __version__ = "unknown"
 
