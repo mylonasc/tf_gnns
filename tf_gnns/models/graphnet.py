@@ -1,6 +1,6 @@
-from tf_gnns.graphnet_utils import make_full_graphnet_functions, make_mlp_graphnet_functions
-from tf_gnns.graphnet_utils import make_graph_indep_graphnet_functions, make_graph_to_graph_and_global_functions, _aggregation_function_factory
-from tf_gnns.graphnet_utils import GraphNet 
+from tf_gnns.graphnet_utils import make_full_graphnet_functions, make_mlp_graphnet_functions, make_mpnn_graphnet_noglobal_functions
+from tf_gnns.graphnet_utils import make_graph_indep_graphnet_functions, make_graph_to_graph_and_global_functions
+from tf_gnns.graphnet_utils import GraphNet
 
 from tf_gnns.lib.gt_ops import _assign_add_tensor_dict
 
@@ -45,16 +45,24 @@ class GNCellMLP(tf.keras.layers.Layer):
         self.global_output_size = global_output_size
 
     def build(self,input_shape):
-
-        gnfns = make_full_graphnet_functions(self._gn_mlp_units,
-                                            node_or_core_input_size=input_shape['nodes'][1],
-                                            edge_input_size        =input_shape['edges'][1],
-                                            global_input_size      =input_shape['global_attr'][1],
-                                            node_or_core_output_size = self.node_output_size,
-                                            edge_output_size       = self.edge_output_size,
-                                            global_output_size     = self.global_output_size,
-                                            aggregation_function = self.aggregation_function,
-                                            **self.layer_constr_kwargs)
+        if 'global_attr' in input_shape:
+            gnfns = make_full_graphnet_functions(self._gn_mlp_units,
+                                                node_or_core_input_size=input_shape['nodes'][1],
+                                                edge_input_size        =input_shape['edges'][1],
+                                                global_input_size      =input_shape['global_attr'][1],
+                                                node_or_core_output_size = self.node_output_size,
+                                                edge_output_size       = self.edge_output_size,
+                                                global_output_size     = self.global_output_size,
+                                                aggregation_function = self.aggregation_function,
+                                                **self.layer_constr_kwargs)
+        else:
+            gnfns = make_mpnn_graphnet_noglobal_functions(self._gn_mlp_units,
+                                    node_or_core_input_size=input_shape['nodes'][1],
+                                    edge_input_size        =input_shape['edges'][1],
+                                    node_or_core_output_size = self.node_output_size,
+                                    edge_output_size       = self.edge_output_size,
+                                    aggregation_function = self.aggregation_function,
+                                    **self.layer_constr_kwargs)
 
         self.gn_core = GraphNet(**gnfns)
         self.all_weights = self.gn_core.weights
@@ -204,21 +212,20 @@ class GraphNetMLP(tf.keras.layers.Layer):
         g_ = self.g_dec_determ.eval_tensor_dict(g_)
         return g_
 
-
 class GraphIndep(tf.keras.layers.Layer):
     """
-    A single graph-independent block.
+    A single graph-independent block.without global attrs.
     """
-    def __init__(self,  
+    def __init__(self,
                  units_out,
-                 gn_mlp_units = [], 
+                 gn_mlp_units = [],
                  node_output_size = None,
                  edge_output_size = None,
                  global_output_size = None,
                  activation = 'relu',
                 *args,**kwargs):
 
-        layer_constr_kwargs = {};
+        layer_constr_kwargs = {}
         make_mlp_kwarg_keys = ['layernorm_last_layer', 'activate_last_layer','activation']
         for k in make_mlp_kwarg_keys:
             if k in kwargs.keys():
@@ -231,12 +238,12 @@ class GraphIndep(tf.keras.layers.Layer):
         self._gn_mlp_units = gn_mlp_units
         self.is_built = False
         if node_output_size is None:
-            node_output_size = self.units 
+            node_output_size = self.units
         if edge_output_size is None:
             edge_output_size = self.units
         if global_output_size is None:
             global_output_size = self.units
-            
+
         self.node_output_size   = node_output_size
         self.edge_output_size   = edge_output_size
         self.global_output_size = global_output_size
@@ -250,24 +257,38 @@ class GraphIndep(tf.keras.layers.Layer):
         except:
             s += 'Not built!'
         return s
-        
+
     def build(self,input_shape):
-        gnfns = make_graph_indep_graphnet_functions(self._gn_mlp_units,
-                                            node_or_core_input_size  = input_shape['nodes'][1],
-                                            edge_input_size          = input_shape['edges'][1],
-                                            global_input_size        = input_shape['global_attr'][1],
-                                            node_or_core_output_size = self.node_output_size,
-                                            edge_output_size         = self.edge_output_size,
-                                            global_output_size       = self.global_output_size,
-                                            **self.layer_constr_kwargs)
-        
-        
+        print(input_shape)
+        if 'global_attr' in input_shape:
+            gnfns = make_graph_indep_graphnet_functions(self._gn_mlp_units,
+                node_or_core_input_size  = input_shape['nodes'][1],
+                edge_input_size          = input_shape['edges'][1],
+                global_input_size        = input_shape['global_attr'][1],
+                node_or_core_output_size = self.node_output_size,
+                edge_output_size         = self.edge_output_size,
+                global_output_size       = self.global_output_size,
+                **self.layer_constr_kwargs
+            )
+        else:
+            gnfns = make_graph_indep_graphnet_functions(self._gn_mlp_units,
+                node_or_core_input_size  = input_shape['nodes'][1],
+                edge_input_size          = input_shape['edges'][1],
+                node_or_core_output_size = self.node_output_size,
+                edge_output_size         = self.edge_output_size,
+                global_output_size       = self.global_output_size,
+                use_global_input         = False,
+                create_global_function   = False,
+                **self.layer_constr_kwargs
+            )
+
         self.gn_graph_indep = GraphNet(**gnfns)
         self.all_weights = self.gn_graph_indep.weights
         self.is_built = True
-        
+
     def call(self, g_):
         return self.gn_graph_indep.eval_tensor_dict(g_)
+
 
 class GraphNetMPNN_MLP(tf.keras.layers.Layer):
     """
