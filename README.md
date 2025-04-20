@@ -81,6 +81,11 @@ After training, the prediction ability is tested by comparing its output to true
 
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/mylonasc/tf_gnns/blob/main/notebooks/02_list_sorting.ipynb)
 
+## Protein-Protein Interaction example
+This example shows how to adapt `torch_geometric` (aka pyg) inputs to `tf_gnn` inputs. 
+The notebook can be run end-to-end in google colab, and it gives out of the box a test set F1 score that is competitive with SOTA. 
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://github.com/mylonasc/tf_gnns/blob/main/notebooks/03_ProteinProteinInteraction_MPNN.ipynb)
+
 ## Performance
 From some initial tests the performance of the `tf_gnns` library seems to be at least as good as `deepmind/graph_nets` when using tensor dictionaries.
 
