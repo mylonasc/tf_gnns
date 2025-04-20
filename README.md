@@ -95,6 +95,7 @@ The library has been used so far in the following publications:
 \[1\] [Bayesian graph neural networks for strain-based crack localization](https://arxiv.org/abs/2012.06791) 
 
 \[2\] [Remaining Useful Life Estimation Under Uncertainty with Causal GraphNets](https://arxiv.org/abs/2011.11740)
+
 \[3\] [Relational VAE: A Continuous Latent Variable Model for Graph Structured Data](https://arxiv.org/abs/2106.16049)
 
 
