@@ -1426,7 +1426,7 @@ def make_mlp_graphnet_functions(units,
         global_input_size = None,
         global_output_size = None,
         use_global_input = False,
-        use_global_to_edge = False, #<- if edge mlp takes has a global input.
+        use_global_to_edge = False, #<- if edge mlp takes a global input.
         use_global_to_node = False, #<- if node mlp takes global input (input GraphTuple should have a globa field.
         node_mlp_use_edge_state_agg_input = True,
         graph_indep = False, message_size = 'auto', 
@@ -1441,7 +1441,7 @@ def make_mlp_graphnet_functions(units,
     * If `edge_input_size' and `edge_output_size' are not defined (None) 
       It is assumed that all inputs and all outputs are the same shape for nodes and edges.
 
-    parameters:
+    Args:
       units              : a size parameter for the networks created.
       node_input_size    : shape of the node state of the incoming graph.
       node_output_size   : shape of the node state of the output graph
@@ -1754,7 +1754,75 @@ def make_graph_indep_graphnet_functions(units,
                                         **kwargs)
 
 
+def make_mpnn_graphnet_noglobal_functions(units,
+        node_or_core_input_size, 
+        node_or_core_output_size = None, 
+        edge_input_size = None, 
+        edge_output_size = None, 
+        aggregation_function ='mean',
+        **kwargs):
+    """
+    A wrapper that creates the functions that are needed for a GN block that does not accept or return any global variables. 
+    This is useful when only node or edge classification is of interest, and we don't have any 'global' info.
+    
+    Besides saving some memory and compute, the Graph Neural Network that is constructed with this function 
+    requires less information for the input tensors (i.e., there is no `n_edges` field required in the graph dictionary input
+    and no indexing for edge-to-global and node-to-global (`global_reps_for_nodes`, `global_reps_for_edges` fields)).
+    
+    Takes care of some flags that control a more general factory method for avoiding clutter.
+    Usage:
+      gn_core = GraphNet(**make_full_graphnet_functions(15, 20))
 
+    * If only "node_or_core_input_size" is defined, the rest of the inputs are assumed the same.
+    * If only "node_or_core_input_size" and "node_output_size" are defined,  then all corresponding input and output sizes are 
+      the same.
+
+    Parameters:
+      units: the width of the created MLPs
+      node_or_core_input_size : the input shape of the node MLP (or the input size of global and edge MLPs if no other input is defined).
+      node_or_core_output_size        : the output shape of the node MLP (or the output sizes of global and edge MLPs if no other inputs are defined).
+      edge_input_size         : [None] the edge state input size
+      edge_output_size        : [None] the edge state output size
+    """
+
+    if node_or_core_output_size is None:
+        node_or_core_output_size = node_or_core_input_size
+
+    if edge_input_size is None:
+        edge_input_size = node_or_core_input_size
+
+    if edge_output_size is None:
+        edge_output_size = node_or_core_output_size
+
+    if node_or_core_input_size is None:
+        raise ValueError("You should provide the GN size of the size of several of the involved states!")
+
+    # Just in case it is called from another wrapper that uses kwargs, check if the named inputs are repeated:
+    kwargs_forbidden = [
+        'graph_indep', 
+        'create_global_function', 
+        'use_global_input',
+        'global_input_size',
+        'global_output_size', 
+        'global_input_size',
+        'edge_input_size',
+        'edge_output_size'
+    ]
+    assert(np.all([k not in kwargs_forbidden for k in kwargs.keys()]))
+    return make_mlp_graphnet_functions(units, 
+                                        node_or_core_input_size, 
+                                        node_or_core_output_size, 
+                                        edge_input_size = edge_input_size,
+                                        edge_output_size = edge_output_size,
+                                        global_output_size = None,
+                                        global_input_size = None,
+                                        use_global_input = False,
+                                        use_global_to_edge=False,
+                                        use_global_to_node=False,
+                                        create_global_function=False,
+                                        aggregation_function = aggregation_function,
+                                        **kwargs)
+    
 def make_full_graphnet_functions(units,
         node_or_core_input_size, 
         node_or_core_output_size = None, 
