@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "tf_gnns"
-version = "0.1.8"
+version = "0.1.9"
 description = "A hackable TensorFlow GraphNets library"
 readme = "README.md"
 license = { text = "Apache-2.0" }
@@ -18,6 +18,19 @@ dependencies = [
 
 [tool.hatch.build.targets.wheel]
 packages = ["tf_gnns"]
+
+[tool.hatch.build.targets.sdist]
+include = [
+  "tf_gnns/**",
+  "README.md",
+  "LICENSE",
+  "pyproject.toml",
+]
+exclude = [
+  ".venv/**",
+  ".venv-*/**",
+  "dist/**",
+]
 
 [tool.uv]
 managed = true

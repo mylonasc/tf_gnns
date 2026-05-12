@@ -13,6 +13,7 @@ pip-wheel-metadata/
 
 # Virtual environments
 .venv/
+.venv-*/
 venv/
 env/
 ENV/
@@ -21,6 +22,7 @@ ENV/
 .pytest_cache/
 .coverage
 .coverage.*
+coverage.xml
 htmlcov/
 .hypothesis/
 

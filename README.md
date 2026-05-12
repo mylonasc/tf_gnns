@@ -2,7 +2,7 @@
 ## TensorFlow compatibility and test status
 
 [![Tests](https://github.com/mylonasc/tf_gnns/actions/workflows/tests.yml/badge.svg?branch=main)](https://github.com/mylonasc/tf_gnns/actions/workflows/tests.yml)
-[![Coverage](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/mylonasc/tf_gnns/main/doc/shields/coverage.json)](doc/shields/coverage.json)
+[![Coverage](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/mylonasc/tf_gnns/main/doc/shields/coverage.json)](https://github.com/mylonasc/tf_gnns/blob/main/doc/shields/coverage.json)
 
 | TensorFlow | TensorFlow Probability | Status |
 |-----|-----|-----|
