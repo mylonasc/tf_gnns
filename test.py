@@ -134,22 +134,19 @@ class TestGraphNet(unittest.TestCase):
                 edge_function = edge_function, 
                 edge_aggregation_function = edge_aggregation_function)
         g = Graph([n1,n2,n3],[e21, e31])
-        g_, m = gn.graph_eval(g, eval_mode=  "safe", return_messages = True)
+        m = edge_aggregation_function[0](tf.stack([e21.edge_tensor, e31.edge_tensor]))
         m_correct = np.hstack([np.ones([batch_size,edge_output_size])*5, np.ones([batch_size,edge_output_size])*10.])
         self.assertTrue(np.all(m == m_correct))
 
 
-    def test_eval_modes(self):
+    def test_graph_eval_matches_graph_tuple_eval(self):
         """
-        test the different evaluation modes.
-        There are 3 evaluation modes - one appropriate for batched graphs, and two for graphs of the same shape ("batched" or unbached ("safe")).
-        The "safe" mode is used as reference for the correct results; All modes should give the same output within an error margin (due to finite precission 
-        rounding errors and the different comp. graphs.)
+        test Graph evaluation through graph_eval against graph_tuple_eval.
         """
-        from tf_gnns import GraphNet, make_mlp_graphnet_functions
+        from tf_gnns import GraphNet, make_mlp_graphnet_functions, make_graph_tuple_from_graph_list
         import code
 
-        batch_size = 12
+        batch_size = 1
         tf.keras.backend.set_floatx("float64")
         node_input_size = 10
         edge_input_size = node_input_size
@@ -182,8 +179,8 @@ class TestGraphNet(unittest.TestCase):
                                             graph_indep=False)
 
         gn = GraphNet(**graph_fcn )
-        res1 = gn.graph_eval(g1.copy(),eval_mode = "safe")
-        res2 = gn.graph_eval(g1.copy(), eval_mode = "batched")
+        res1 = gn.graph_eval(g1.copy())
+        res2 = gn.graph_tuple_eval(make_graph_tuple_from_graph_list([g1.copy()])).get_graph(0)
 
         error_nodes = np.max([np.linalg.norm(n1_.node_attr_tensor - n2_.node_attr_tensor) for n1_, n2_ in zip(res1.nodes, res2.nodes)])/np.min(node_abs_vals)
         error_edges = np.max([np.linalg.norm(e1_.edge_tensor - e2_.edge_tensor) for e1_,e2_ in zip(res1.edges, res2.edges)])/np.min(edge_abs_vals)
@@ -199,8 +196,8 @@ class TestGraphNet(unittest.TestCase):
                 graph_indep=gi, use_edge_state_agg_input = False)
         graph_fcn.update({"graph_independent" : gi})
         gn = GraphNet(**graph_fcn )
-        res1 = gn.graph_eval(g1.copy(),eval_mode = "safe")
-        res2 = gn.graph_eval(g1.copy(), eval_mode = "batched")
+        res1 = gn.graph_eval(g1.copy())
+        res2 = gn.graph_tuple_eval(make_graph_tuple_from_graph_list([g1.copy()])).get_graph(0)
         error_nodes = np.max([np.linalg.norm(n1.node_attr_tensor - n2.node_attr_tensor) for n1, n2 in zip(res1.nodes, res2.nodes)])/np.min(node_abs_vals)
         error_edges = np.max([np.linalg.norm(e1.edge_tensor - e2.edge_tensor) for e1,e2 in zip(res1.edges, res2.edges)])/np.min(edge_abs_vals)
         self.assertTrue(error_nodes < 1e-10)

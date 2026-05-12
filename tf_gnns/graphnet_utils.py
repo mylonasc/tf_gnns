@@ -43,7 +43,7 @@ except:
 
 import numpy as np
 
-from .tfgnns_datastructures import Graph, GraphTuple
+from .tfgnns_datastructures import Graph, GraphTuple, make_graph_tuple_from_graph_list
 
 
 # The following stores how larger is the aggregation operation 
@@ -413,6 +413,8 @@ class GraphNet:
         """
         Print HTML buttons - for jupyter. 
         """
+        # TODO: Consider moving pretty-print helpers to a dedicated visualization
+        # module so core runtime logic remains smaller and easier to maintain.
         s = ''
         s +=  '<div>'
         #s += '<html>'
@@ -487,7 +489,7 @@ class GraphNet:
         if not isinstance(graph, GraphTuple):
             return self.graph_eval(graph)
         else:
-            return self.graph_tuple_eval(GraphTuple)
+            return self.graph_tuple_eval(graph)
 
 
     def graph_tuple_eval(self, tf_graph_tuple : GraphTuple):
@@ -688,80 +690,21 @@ class GraphNet:
 
 
 
-    def graph_eval(self, graph : Graph, eval_mode = "batched", **kwargs):
-        # Evaluate the full GraphNet step: ("naive" implementations - used for testing)
-        # parameters:
-        #   eval_mode - ['batched' , 'safe']: 
-        #                batched: assuming that the first non-batch dimension of the attributes of the nodes and 
-        #                         edges of the input graph correspond to different graphs of the same type (same connectivity)
-        #                         this allows for some more parallelization. The input attributes should 
-        #                         be at least two dimensional (a 1d vector [Batchdim, N] is entered as [Batchdim, 1, N] tensor.
-        # 
-        #                safe:    This is a naive implementation. It is useful for testing and providing some memory 
-        #                         efficiency when dealing with larger graphs ('batched' method may fail in such cases since 
-        #                         it creates big intermediate tensors)
-        #                         
-        # 
-        # 
-        eval_mode_dict = {'batched' : self._graph_eval_batched,'safe' : self._graph_eval_safe}
-        return eval_mode_dict[eval_mode](graph, **kwargs)
+    def graph_eval(self, graph: Graph, **kwargs):
+        """
+        Evaluate a single Graph by routing through GraphTuple execution.
 
-    def _graph_eval_safe(self, graph: Graph, return_messages = False):
-        # 
-        #                safe:    This is a naive implementation. It is useful for testing and providing some memory 
-        #                         efficiency when dealing with larger graphs ('batched' method may fail in such cases 
-        #                         since it creates big intermediate tensors).
-        # parameters:
-        #    graph: a tf_gnns.Graph containing the edges and nodes to compute with.
-        #     return_messages : (useful for debugging) 
-        # 
-        assert(isinstance(graph, Graph))
-        eval_mode = 'safe'
+        Legacy `safe` / `batched` modes were removed in favor of the unified
+        GraphTuple path, which is the supported runtime route.
+        """
+        if not isinstance(graph, Graph):
+            raise TypeError("graph_eval expects a Graph instance")
+        if "eval_mode" in kwargs or "return_messages" in kwargs:
+            raise ValueError("'safe'/'batched' eval modes were removed; use graph_eval(graph) or graph_tuple_eval(...) instead.")
 
-        self.eval_edge_functions_safe(graph)
-
-        batch_size             = graph.nodes[0].shape[0]; # This will be related to the input graph tuple.
-
-        edge_input_size = self.edge_input_size ; # This relates to the graphnet being evaluated.
-        if self.edge_function is not None:
-            if not isinstance(self.edge_function,tf.keras.Model):
-                raise Exception(" The 'safe' evaluation mode works for tf.keras.Model objects. Either wrap your function in a keras model or implement it in keras.")
-            edge_message_size = self.edge_function.output.shape[-1]
-
-        # For GraphIndependent there are actualy no messages to be passed... 
-        # I made a vector of zeros to treat 
-        edge_to_node_agg_dummy = np.zeros([batch_size, edge_message_size])
-
-        # Compute the edge-aggregated messages:
-        
-        
-        # Simply looping over nodes: Here either the interm. results of aggregation etc are computed or batches are prepared.
-        for n in graph.nodes: # this explicit iteration is expensive and unnecessary in most cases. The DM approach (graph tuples) seems better - implement that.
-            if len(n.incoming_edges) != 0:
-                if not self.is_graph_independent :
-                    edge_vals_ = tf.stack([e.edge_tensor for e in n.incoming_edges])
-                    edge_to_node_agg = self.edge_aggregation_function(edge_vals_)
-                else:
-                    edge_to_node_agg = edge_to_node_agg_dummy
-            else:
-                None #edge_to_node_agg = edge_to_node_agg_dummy
-
-            if self.is_graph_independent:
-                node_attr_tensor = self.node_function([n.node_attr_tensor])
-                n.set_tensor(node_attr_tensor)
-            else:
-                node_attr_tensor = self.node_function(
-                        {
-                            'node_state' : n.node_attr_tensor, 
-                            'edge_state_agg' : edge_to_node_agg
-                        }) # TODO: Change that to infer inputs from function names like the GraphTuple method.
-                                                                                              
-                n.set_tensor(node_attr_tensor)
-
-        if return_messages:
-            return graph, edge_to_node_agg
-
-        return graph
+        gt = make_graph_tuple_from_graph_list([graph.copy()])
+        gt_out = self.graph_tuple_eval(gt)
+        return gt_out.get_graph(0)
 
     def save(self, path):
         """
@@ -800,155 +743,13 @@ class GraphNet:
                 print("path %s does not exist! Function %s will not be constructed."%(d_,l))
                 
             else:
-                model_fcn = tf.keras.models.load_model(d_)
-
-                functions.update({l:model_fcn})
-
-                print("loading %s"%(d_))
-        return functions
-
-    def _graph_eval_batched(self, graph):
-        # Evaluate the full GraphNet step:
-        # parameters:
-        #   eval_mode - ['batched' , 'safe']: 
-        #                batched: assuming that the first non-batch dimension of the attributes of the nodes and 
-        #                         edges of the input graph correspond to different graphs of the same type (same connectivity)
-        #                         this allows for some more parallelization. The input attributes should 
-        #                         be at least two dimensional (a 1d vector [Batchdim, N] is entered as [Batchdim, 1, N] tensor.
-        # 
-        # 
-        assert(isinstance(graph, Graph))
-        print("WARNING: 'batched' graph evaluation, which works well only for graphs of same connectivity, is to be completely removed in the future. It is also not well covered from tests.")
-
-        self.eval_edge_functions_batched(graph)
-
-        batch_size             = graph.nodes[0].shape[0]; # This will be related to the input graph tuple.
-
-        edge_input_size = self.edge_input_size ; # This relates to the graphnet being evaluated.
-
-        # For GraphIndependent there are actualy no messages to be passed... 
-        # I made a vector of zeros to treat 
-        edge_to_node_agg_dummy = np.zeros([batch_size, edge_input_size]);
-
-        # Compute the edge-aggregated messages:
-        edge_agg_messages_batch = []
-        node_states_batch = []
-        
-        # Simply looping over nodes: Here either the interm. results of aggregation etc are computed or batches are prepared.
-        for n in graph.nodes: # this explicit iteration is expensive and unnecessary in most cases. The DM approach (graph tuples) seems better - do that.
-            if NodeInput.EDGE_AGG_STATE.value in self.node_input_dict.keys():
-
-                if len(n.incoming_edges) != 0:
-                    edge_vals_ = tf.stack([e.edge_tensor for e in n.incoming_edges])
-                    edge_to_node_agg = self.edge_aggregation_function(edge_vals_)
-                else: 
-                    # Put a vector of "zeros" in place of the aggregation - there are no edges to accum. over!
-                    edge_to_node_agg = edge_to_node_agg_dummy 
-
-                edge_agg_messages_batch.append(edge_to_node_agg)
-
-            node_states_batch.append(n.node_attr_tensor)
-        
-
-        # out of loop: either accummulated lists for batched computation or evaluated edges and nodes sequentially
-        # If we compute in batched mode, there is some reshaping to be done in the end. 
-        node_input_shape = graph.nodes[0].shape # nodes and edges (therefore graphs as well) could contain multiple datapoints. This is to treat this case.
-        node_output_shape =self.node_function.output.shape
-
-
-        node_function_inputs = {}
-        if NodeInput.NODE_STATE.value in self.node_input_dict.keys():
-            node_states_concat = tf.concat(node_states_batch,axis = 0)
-            node_function_inputs.update({NodeInput.NODE_STATE.value: node_states_concat})
-        if NodeInput.EDGE_AGG_STATE.value in self.node_input_dict.keys():
-            edge_agg_messages_concat = tf.concat(edge_agg_messages_batch,axis = 0)
-            node_function_inputs.update({NodeInput.EDGE_AGG_STATE.value : edge_agg_messages_concat})
-        if NodeInput.GLOBAL_STATE.value in self.node_input_dict.keys():
-            Exception("Global attributes not implemented yet for this evaluation method.")
-            node_function_inputs.update({NodeInput.GLOBAL_STATE.value : global_value_concat})
-
-        batch_res = self.node_function(node_function_inputs)
-
-        unstacked = tf.unstack(
-                tf.reshape(
-                    batch_res,[-1,*node_input_shape[0:1],*node_output_shape[1:]]), axis = 0
+                model_fcn = tf.keras.models.load_model(
+                    d_,
+                    custom_objects={
+                        "SimpleAggLayerDense": SimpleAggLayerDense,
+                        "SimpleAggLayerSparse": SimpleAggLayerSparse,
+                    },
                 )
-
-        for n, nvalue in zip(graph.nodes, unstacked):
-            n.set_tensor(nvalue)
-
-        return graph
-
-    def save(self, path):
-        functions = [self.node_function, self.edge_aggregation_function, self.edge_function ]
-        path_labels = ["node_function", "edge_aggregation_function", "edge_function"]
-        import os
-        if not os.path.exists(path):
-            os.makedirs(path)
-            
-        for model_fcn, label in zip(functions, path_labels):
-            if model_fcn is not None:
-                d_ = os.path.join(path,label) + '.keras'
-                model_fcn.save(d_)
-                
-    @staticmethod
-    def load_graph_functions(path):
-        """
-        Returns a list of loaded graph functions.
-        """
-        function_rel_paths = ["node_function", "edge_aggregation_function", "edge_function"]
-        functions = {};
-
-        if not os.path.exists(path):
-            print("path does not exist.")
-            assert(0)
-            
-        avail_functions = os.listdir(path) # the path should have appropriately named folders that correspond to the diffferent graph functions. All are keras models.
-        for l in function_rel_paths:
-            d_ = os.path.join(path,l)
-            if not os.path.exists(d_):
-                print("path %s does not exist! Function %s will not be constructed."%(d_,l))
-                
-            else:
-                model_fcn = tf.keras.models.load_model(d_)
-
-                functions.update({l:model_fcn})
-
-                print("loading %s"%(d_))
-        return functions
-
-    def save(self, path):
-        functions = [self.node_function, self.edge_aggregation_function, self.edge_function]
-        path_labels = ["node_function", "edge_aggregation_function", "edge_function"]
-        import os
-        if not os.path.exists(path):
-            os.makedirs(path)
-            
-        for model_fcn, label in zip(functions, path_labels):
-            if model_fcn is not None:
-                d_ = os.path.join(path,label) + '.keras'
-                model_fcn.save(d_)
-                
-    @staticmethod
-    def load_graph_functions(path):
-        """
-        Returns a list of loaded graph functions.
-        """
-        function_rel_paths = ["node_function", "edge_aggregation_function", "edge_function"]
-        functions = {};
-
-        if not os.path.exists(path):
-            print("path does not exist.")
-            assert(0)
-            
-        avail_functions = os.listdir(path) # the path should have appropriately named folders that correspond to the diffferent graph functions. All are keras models.
-        for l in function_rel_paths:
-            d_ = os.path.join(path,l)
-            if not os.path.exists(d_):
-                print("path %s does not exist! Function %s will not be constructed."%(d_,l))
-                
-            else:
-                model_fcn = tf.keras.models.load_model(d_)
 
                 functions.update({l:model_fcn})
 
@@ -961,92 +762,13 @@ class GraphNet:
         If the model is un-initialized, this is called from a static method (factory method) to make a new object with consistent properties.
 
         """
-        functions = [self.node_function, self.edge_aggregation_function, self.edge_function]
-        all_paths = ["node_function", "edge_aggregation_function", "edge_function"]
-        path_label_to_function = {z:v for z,v in zip(all_paths,functions)}
-        path_labels = os.listdir(path) #
-        
         if not os.path.exists(path):
-            print("path does not exist.")
-            assert(0)
-            
-        for l in path_labels:
-            d_ = os.path.join(path,l)
-            if not os.path.exists(d_):
-                print("path %s does not exist! Function %s will not be constructed."%(d_,l))
-                next
-            else:
-                model_fcn = tf.keras.models.load_model(d_)
-                path_label_to_function[l] = model_fcn
-                print(path_label_to_function[l] )
-
-                print("loading %s"%(d_))
-
-    def eval_edge_functions_safe(self,graph):
-        """
-        Evaluate all edge functions. Batched mode has some shape-juggling going on.
-        If you see weird behaviour that's the first place to look for - test should fail if this does not compute properly.
-        
-        params:
-          graph     - the graph containing the edges 
-        """
-        if len(graph.edges) == 0:
-            return 
-
-        def prep_inputs(edge_):
-            edge_inputs = {};
-            if EdgeInput.EDGE_STATE.value in self.edge_input_dict.keys():
-                edge_inputs.update({EdgeInput.EDGE_STATE.value : edge_.edge_tensor})
-
-            if EdgeInput.SENDER_NODE_STATE.value in self.edge_input_dict.keys():
-                edge_inputs.update({EdgeInput.SENDER_NODE_STATE.value : edge_.node_from.node_attr_tensor})
-
-            if EdgeInput.RECEIVER_NODE_STATE.value in self.edge_input_dict.keys():
-                edge_inputs.update({EdgeInput.RECEIVER_NODE_STATE.value : edge_.node_to.node_attr_tensor})
-            return edge_inputs
-        
-        for edge in graph.edges:
-            edge_tensor = self.edge_function( prep_inputs(edge) )
-            edge.set_tensor(edge_tensor)
-                    
-
-            
-    def eval_edge_functions_batched(self,graph):
-        """
-        Evaluate all edge functions. Batched mode has some shape-juggling going on.
-        If you see weird behaviour that's the first place to look for - test should fail if this does not compute properly.
-        
-        params:
-          graph     - the graph containing the edges 
-          eval_mode - "safe" or "batched" (batched is also safe if state shapes are respected)
-        """
-        
-        if len(graph.edges) == 0:
-            return 
-        
-        edges_ = graph.edges 
-        edges_shape = edges_[0].shape # not good! I could have edges of different types/sizes. Not sure how to deal with this at the moment.
-        edge_inputs = {}
-
-        if EdgeInput.EDGE_STATE.value in self.edge_input_dict.keys():
-            batched_edge_states = tf.concat([e.edge_tensor for e in edges_],axis = 0)
-            edge_inputs.update({EdgeInput.EDGE_STATE.value : batched_edge_states})
-
-
-        if EdgeInput.SENDER_NODE_STATE.value in self.edge_input_dict.keys():
-            node_from_concat = tf.concat([e.node_from.node_attr_tensor for e in edges_], axis = 0)
-            edge_inputs.update({EdgeInput.SENDER_NODE_STATE.value : node_from_concat})
-
-        if EdgeInput.RECEIVER_NODE_STATE.value in self.edge_input_dict.keys():
-            node_to_concat= tf.concat([e.node_to.node_attr_tensor for e in edges_],axis = 0)
-            edge_inputs.update({EdgeInput.RECEIVER_NODE_STATE.value : node_to_concat})
-
-        batch_res = self.edge_function(edge_inputs)
-
-        unstacked = tf.unstack(tf.transpose(tf.reshape(batch_res,[-1,*edges_shape[0:1],*batch_res.shape[1:]]),[0,1,2]), axis = 0)
-
-        for e, evalue in zip(edges_, unstacked):
-            e.set_tensor(evalue)
+            raise FileNotFoundError(f"path does not exist: {path}")
+        loaded = GraphNet.load_graph_functions(path)
+        self.node_function = loaded.get("node_function")
+        self.edge_aggregation_function = loaded.get("edge_aggregation_function")
+        self.edge_function = loaded.get("edge_function")
+        self.weights = self._weights()
 
                 
 def make_mlp(units, input_tensor_list , output_shape, activation = "relu", **kwargs):
@@ -1886,7 +1608,5 @@ def make_full_graphnet_functions(units,
                                         create_global_function=True,
                                         aggregation_function = aggregation_function,
                                         **kwargs)
-
-
 
 

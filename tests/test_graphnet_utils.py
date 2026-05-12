@@ -1,17 +1,20 @@
 import numpy as np
 import pytest
 import tensorflow as tf
+from pathlib import Path
 
 from tf_gnns import GraphNet
 from tf_gnns.graphnet_utils import (
     _aggregation_function_factory,
     make_global_mlp,
+    make_graph_indep_graphnet_functions,
+    make_mpnn_graphnet_noglobal_functions,
     make_mlp_graphnet_functions,
     make_node_mlp,
     unsorted_segment_max_or_zero,
     unsorted_segment_min_or_zero,
 )
-from tf_gnns.tfgnns_datastructures import GraphTuple
+from tf_gnns.tfgnns_datastructures import Edge, Graph, GraphTuple, Node
 
 
 def _make_tensor_dict(with_global=True):
@@ -217,3 +220,58 @@ def test_make_global_mlp_rejects_invalid_graph_indep_configurations():
             use_global_state_input=False,
             graph_indep=True,
         )
+
+
+def test_wrapper_factories_reject_invalid_inputs():
+    with pytest.raises(ValueError, match="provide the GN size"):
+        make_graph_indep_graphnet_functions(8, node_or_core_input_size=None)
+
+    with pytest.raises(ValueError, match="provide the GN size"):
+        make_mpnn_graphnet_noglobal_functions(8, node_or_core_input_size=None)
+
+
+def test_graph_eval_rejects_removed_legacy_modes():
+    node_in = tf.keras.layers.Input(shape=(2,), name="node_state")
+    edge_in = tf.keras.layers.Input(shape=(2,), name="edge_state")
+    node_fn = tf.keras.Model(inputs=[node_in], outputs=node_in)
+    edge_fn = tf.keras.Model(inputs=[edge_in], outputs=edge_in)
+    gn = GraphNet(node_function=node_fn, edge_function=edge_fn, graph_independent=True)
+
+    n1 = Node(tf.constant([[1.0, 2.0]], dtype=tf.float32))
+    n2 = Node(tf.constant([[3.0, 4.0]], dtype=tf.float32))
+    e12 = Edge(tf.constant([[0.5, -0.5]], dtype=tf.float32), n1, n2)
+    g = Graph([n1, n2], [e12])
+
+    with pytest.raises(ValueError, match="removed"):
+        gn.graph_eval(g, eval_mode="safe")
+
+
+def test_graphnet_save_load_and_load_method(tmp_path):
+    path = Path(tmp_path) / "gn_saved"
+    gn_args = make_mlp_graphnet_functions(
+        8,
+        node_input_size=2,
+        node_output_size=2,
+        edge_input_size=2,
+        edge_output_size=2,
+        graph_indep=False,
+        use_global_input=False,
+        create_global_function=False,
+    )
+    gn = GraphNet(**gn_args)
+    gn.save(str(path))
+
+    loaded_fns = GraphNet.load_graph_functions(str(path))
+    assert "node_function" in loaded_fns
+    assert "edge_function" in loaded_fns
+
+    gn_loaded = GraphNet.make_from_path(str(path))
+    assert len(gn_loaded.weights) == len(gn.weights)
+
+    gn2 = GraphNet(node_function=None, edge_function=None)
+    gn2.load(str(path))
+    assert gn2.node_function is not None
+    assert gn2.edge_function is not None
+
+    with pytest.raises(FileNotFoundError):
+        gn2.load(str(path / "missing"))
