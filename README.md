@@ -2,6 +2,7 @@
 ## TensorFlow compatibility and test status
 
 [![Tests](https://github.com/mylonasc/tf_gnns/actions/workflows/tests.yml/badge.svg?branch=main)](https://github.com/mylonasc/tf_gnns/actions/workflows/tests.yml)
+[![Coverage](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/mylonasc/tf_gnns/main/doc/shields/coverage.json)](doc/shields/coverage.json)
 
 | TensorFlow | TensorFlow Probability | Status |
 |-----|-----|-----|
@@ -52,6 +53,11 @@ Run tests:
 ```
 uv sync --group dev
 uv run pytest -v
+```
+
+Run tests with coverage and update badge payload:
+```
+scripts/run_coverage.sh
 ```
 
 Run compatibility tests across TensorFlow versions:
