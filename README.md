@@ -38,7 +38,12 @@ All tests pass with `tensorflow==2.15` and `tensorflow_probability==0.22`, and i
 
 ---
 
-Install with `pip`:
+Install with `uv` (recommended):
+```
+uv sync
+```
+
+Or install with `pip`:
 ```
 # optional - recommended:
 # pip install tensorflow==2.15 
@@ -97,5 +102,4 @@ The library has been used so far in the following publications:
 \[2\] [Remaining Useful Life Estimation Under Uncertainty with Causal GraphNets](https://arxiv.org/abs/2011.11740)
 
 \[3\] [Relational VAE: A Continuous Latent Variable Model for Graph Structured Data](https://arxiv.org/abs/2106.16049)
-
 
