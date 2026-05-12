@@ -9,7 +9,7 @@ on:
       - main
 
 jobs:
-  test:
+  test-tf217:
     runs-on: ubuntu-latest
 
     steps:
@@ -24,8 +24,77 @@ jobs:
       - name: Set up uv
         uses: astral-sh/setup-uv@v5
 
-      - name: Install dependencies
-        run: uv sync --locked
+      - name: Run tests (TensorFlow 2.17)
+        run: scripts/run_tf_matrix_tests.sh 2.17
 
-      - name: Run tests
-        run: uv run python -m unittest -v
+  test-tf218:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Run tests (TensorFlow 2.18)
+        run: scripts/run_tf_matrix_tests.sh 2.18
+
+  test-tf219:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Run tests (TensorFlow 2.19)
+        run: scripts/run_tf_matrix_tests.sh 2.19
+
+  test-tf220:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Run tests (TensorFlow 2.20)
+        run: scripts/run_tf_matrix_tests.sh 2.20
+
+  test-tf221:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Run tests (TensorFlow 2.21)
+        run: scripts/run_tf_matrix_tests.sh 2.21

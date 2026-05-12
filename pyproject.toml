@@ -21,3 +21,11 @@ packages = ["tf_gnns"]
 
 [tool.uv]
 managed = true
+
+[dependency-groups]
+dev = [
+  "pytest>=8.0",
+]
+
+[tool.pytest.ini_options]
+python_files = ["test.py", "test_*.py", "*_test.py"]

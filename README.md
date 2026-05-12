@@ -1,19 +1,17 @@
 
-## Tensorflow versions and `tf_gnns`
+## TensorFlow compatibility and test status
 
-|tf   | Tests status |
-|-----|----|
-|2.13 | ![alt-img](https://raw.githubusercontent.com/mylonasc/tf_gnns/refs/heads/main/doc/shields/tf2.13.svg) | 
-|2.14 | ![alt-img](https://raw.githubusercontent.com/mylonasc/tf_gnns/refs/heads/main/doc/shields/tf2.14.svg) | 
-|2.15 | ![alt-img](https://raw.githubusercontent.com/mylonasc/tf_gnns/refs/heads/main/doc/shields/tf2.15.svg) | 
-|2.17 | ![alt-img](https://raw.githubusercontent.com/mylonasc/tf_gnns/refs/heads/main/doc/shields/tf2.17.svg) | 
+[![Tests](https://github.com/mylonasc/tf_gnns/actions/workflows/tests.yml/badge.svg?branch=main)](https://github.com/mylonasc/tf_gnns/actions/workflows/tests.yml)
 
-<details>
-<summary>Further info</summary>
-There are some unresolved bugs with the latest TensorFlow versions. Due to the ongoing transition from Keras 2 to Keras 3, some problems are already resolved, but there are still flaky parts in the code.
-Since I develop this library single-handedly, I will wait for the dust to settle with Keras 3.
-At the moment, it is recommended to use `tensorflow==2.15` or earlier.
-</details>
+| TensorFlow | TensorFlow Probability | Status |
+|-----|-----|-----|
+| 2.17.x | 0.24.x | ![TF 2.17 | TFP 0.24](https://img.shields.io/github/actions/workflow/status/mylonasc/tf_gnns/tests.yml?branch=main&job=test-tf217&label=TF%202.17%20%7C%20TFP%200.24) |
+| 2.18.x | 0.25.x | ![TF 2.18 | TFP 0.25](https://img.shields.io/github/actions/workflow/status/mylonasc/tf_gnns/tests.yml?branch=main&job=test-tf218&label=TF%202.18%20%7C%20TFP%200.25) |
+| 2.19.x | 0.25.x | ![TF 2.19 | TFP 0.25](https://img.shields.io/github/actions/workflow/status/mylonasc/tf_gnns/tests.yml?branch=main&job=test-tf219&label=TF%202.19%20%7C%20TFP%200.25) |
+| 2.20.x | 0.25.x | ![TF 2.20 | TFP 0.25](https://img.shields.io/github/actions/workflow/status/mylonasc/tf_gnns/tests.yml?branch=main&job=test-tf220&label=TF%202.20%20%7C%20TFP%200.25) |
+| 2.21.x | 0.25.x | ![TF 2.21 | TFP 0.25](https://img.shields.io/github/actions/workflow/status/mylonasc/tf_gnns/tests.yml?branch=main&job=test-tf221&label=TF%202.21%20%7C%20TFP%200.25) |
+
+The matrix above is validated by `scripts/run_tf_matrix_tests.sh` and in CI (`.github/workflows/tests.yml`).
 
 # `tf_gnns` - A Hackable GraphNets library
 ![alt-img](https://raw.githubusercontent.com/mylonasc/tf_gnns/main/doc/figures/tfgnns_logo2.png)
@@ -33,8 +31,7 @@ GNN implementations that take advantage of `tensorflow_probability` functionalit
 ---
 **NOTE**
 
-Currently `tensorflow==2.17` and `tensorflow_probability==0.24` have one failing test. The failure is related to validation between two different computation modes: `GraphTuple` (efficient) and `Graph` (less efficient; does not use `unsorted_segment_sum` and other sparse aggregations). I have not resolved the source of the issue yet, but it could be a benign deviation due to operation-order changes in low-level kernels.
-All tests pass with `tensorflow==2.15` and `tensorflow_probability==0.22`, and it is therefore recommended to use these. 
+The current tested matrix is TensorFlow `2.17` through `2.21` with the matching TensorFlow Probability versions shown above.
 
 ---
 
@@ -50,6 +47,23 @@ Or install with `pip`:
 # pip install tensorflow_probability==0.22
 pip install tf_gnns
 ```
+
+Run tests:
+```
+uv sync --group dev
+uv run pytest -v
+```
+
+Run compatibility tests across TensorFlow versions:
+```
+scripts/run_tf_matrix_tests.sh 2.17 2.18 2.19 2.20 2.21
+```
+
+Build the Docker test image for a specific TensorFlow version:
+```
+docker build --build-arg TENSORFLOW_VERSION=2.17 -t tf-gnns:test .
+```
+
 ## Use through Docker
 
 You can build a Docker image that uses `tf_gnns` with the following command, based on Ubuntu 22:
