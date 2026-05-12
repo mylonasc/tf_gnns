@@ -1,0 +1,23 @@
+[build-system]
+requires = ["hatchling>=1.24.0"]
+build-backend = "hatchling.build"
+
+[project]
+name = "tf_gnns"
+version = "0.1.8"
+description = "A hackable TensorFlow GraphNets library"
+readme = "README.md"
+license = { text = "Apache-2.0" }
+requires-python = ">=3.9,<3.13"
+dependencies = [
+  "numpy>=1.0",
+  "tensorflow>=2.15",
+  "tensorflow_probability>=0.22",
+  "tf_keras>=2.15",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["tf_gnns"]
+
+[tool.uv]
+managed = true
