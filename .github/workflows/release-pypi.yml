@@ -1,0 +1,41 @@
+name: Release PyPI
+
+on:
+  workflow_dispatch:
+    inputs:
+      version_tag:
+        description: "Git tag to release (e.g. v0.1.10)"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  build-and-publish-pypi:
+    runs-on: ubuntu-latest
+    environment: pypi
+
+    steps:
+      - name: Check out repository at tag
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.version_tag }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Build package artifacts
+        run: uv build
+
+      - name: Verify package metadata
+        run: uvx twine check dist/*
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
