@@ -35,7 +35,7 @@ jobs:
         uses: astral-sh/setup-uv@v5
 
       - name: Build package artifacts
-        run: uv build
+        run: rm -rf dist && uv build
 
       - name: Verify package metadata
         run: uvx twine check dist/*
@@ -44,3 +44,4 @@ jobs:
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
           repository-url: https://test.pypi.org/legacy/
+          packages-dir: dist

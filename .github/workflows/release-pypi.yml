@@ -32,10 +32,12 @@ jobs:
         uses: astral-sh/setup-uv@v5
 
       - name: Build package artifacts
-        run: uv build
+        run: rm -rf dist && uv build
 
       - name: Verify package metadata
         run: uvx twine check dist/*
 
       - name: Publish to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: dist
