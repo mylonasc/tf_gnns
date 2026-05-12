@@ -4,6 +4,12 @@ on:
   push:
     tags:
       - "v*"
+  workflow_dispatch:
+    inputs:
+      version_tag:
+        description: "Optional tag/ref to release from (e.g. v0.1.10)"
+        required: false
+        type: string
 
 permissions:
   contents: read
@@ -17,6 +23,8 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.version_tag != '' && inputs.version_tag || github.ref }}
 
       - name: Set up Python
         uses: actions/setup-python@v5

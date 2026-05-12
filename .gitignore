@@ -34,6 +34,9 @@ htmlcov/
 # Jupyter
 .ipynb_checkpoints/
 
+# Local release notes
+RELEASE_INSTRUCTIONS.md
+
 # OS / editor
 .DS_Store
 .idea/
