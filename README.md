@@ -5,11 +5,11 @@
 
 | TensorFlow | TensorFlow Probability | Status |
 |-----|-----|-----|
-| 2.17.x | 0.24.x | ![TF 2.17 | TFP 0.24](https://img.shields.io/github/actions/workflow/status/mylonasc/tf_gnns/tests.yml?branch=main&job=test-tf217&label=TF%202.17%20%7C%20TFP%200.24) |
-| 2.18.x | 0.25.x | ![TF 2.18 | TFP 0.25](https://img.shields.io/github/actions/workflow/status/mylonasc/tf_gnns/tests.yml?branch=main&job=test-tf218&label=TF%202.18%20%7C%20TFP%200.25) |
-| 2.19.x | 0.25.x | ![TF 2.19 | TFP 0.25](https://img.shields.io/github/actions/workflow/status/mylonasc/tf_gnns/tests.yml?branch=main&job=test-tf219&label=TF%202.19%20%7C%20TFP%200.25) |
-| 2.20.x | 0.25.x | ![TF 2.20 | TFP 0.25](https://img.shields.io/github/actions/workflow/status/mylonasc/tf_gnns/tests.yml?branch=main&job=test-tf220&label=TF%202.20%20%7C%20TFP%200.25) |
-| 2.21.x | 0.25.x | ![TF 2.21 | TFP 0.25](https://img.shields.io/github/actions/workflow/status/mylonasc/tf_gnns/tests.yml?branch=main&job=test-tf221&label=TF%202.21%20%7C%20TFP%200.25) |
+| 2.17.x | 0.24.x | <img alt="TF 2.17 TFP 0.24" src="https://img.shields.io/github/actions/workflow/status/mylonasc/tf_gnns/tests.yml?branch=main&job=test-tf217&label=TF%202.17%20%7C%20TFP%200.24"> |
+| 2.18.x | 0.25.x | <img alt="TF 2.18 TFP 0.25" src="https://img.shields.io/github/actions/workflow/status/mylonasc/tf_gnns/tests.yml?branch=main&job=test-tf218&label=TF%202.18%20%7C%20TFP%200.25"> |
+| 2.19.x | 0.25.x | <img alt="TF 2.19 TFP 0.25" src="https://img.shields.io/github/actions/workflow/status/mylonasc/tf_gnns/tests.yml?branch=main&job=test-tf219&label=TF%202.19%20%7C%20TFP%200.25"> |
+| 2.20.x | 0.25.x | <img alt="TF 2.20 TFP 0.25" src="https://img.shields.io/github/actions/workflow/status/mylonasc/tf_gnns/tests.yml?branch=main&job=test-tf220&label=TF%202.20%20%7C%20TFP%200.25"> |
+| 2.21.x | 0.25.x | <img alt="TF 2.21 TFP 0.25" src="https://img.shields.io/github/actions/workflow/status/mylonasc/tf_gnns/tests.yml?branch=main&job=test-tf221&label=TF%202.21%20%7C%20TFP%200.25"> |
 
 The matrix above is validated by `scripts/run_tf_matrix_tests.sh` and in CI (`.github/workflows/tests.yml`).
 
