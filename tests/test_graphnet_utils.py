@@ -1,6 +1,7 @@
 import numpy as np
 import pytest
 import tensorflow as tf
+import keras
 from pathlib import Path
 
 from tf_gnns import GraphNet
@@ -15,6 +16,20 @@ from tf_gnns.graphnet_utils import (
     unsorted_segment_min_or_zero,
 )
 from tf_gnns.tfgnns_datastructures import Edge, Graph, GraphTuple, Node
+
+
+def _to_numpy(x):
+    if hasattr(x, "detach"):
+        x = x.detach()
+    return keras.ops.convert_to_numpy(x)
+
+
+def _assert_allclose(a, b, atol=1e-6, rtol=1e-6):
+    np.testing.assert_allclose(_to_numpy(a), _to_numpy(b), atol=atol, rtol=rtol)
+
+
+def _assert_equal(a, b):
+    np.testing.assert_equal(_to_numpy(a), _to_numpy(b))
 
 
 def _make_tensor_dict(with_global=True):
@@ -83,9 +98,9 @@ def test_eval_tensor_dict_matches_graph_tuple_eval_with_global():
     out_td = gn.eval_tensor_dict(td.copy())
     out_gt = gn.graph_tuple_eval(_to_gt(td).copy())
 
-    tf.debugging.assert_near(out_td["edges"], out_gt.edges, atol=1e-6, rtol=1e-6)
-    tf.debugging.assert_near(out_td["nodes"], out_gt.nodes, atol=1e-6, rtol=1e-6)
-    tf.debugging.assert_near(out_td["global_attr"], out_gt.global_attr, atol=1e-6, rtol=1e-6)
+    _assert_allclose(out_td["edges"], out_gt.edges, atol=1e-6, rtol=1e-6)
+    _assert_allclose(out_td["nodes"], out_gt.nodes, atol=1e-6, rtol=1e-6)
+    _assert_allclose(out_td["global_attr"], out_gt.global_attr, atol=1e-6, rtol=1e-6)
 
 
 def test_eval_tensor_dict_matches_graph_tuple_eval_without_global():
@@ -107,8 +122,8 @@ def test_eval_tensor_dict_matches_graph_tuple_eval_without_global():
 
     out_td = gn.eval_tensor_dict(td.copy())
     out_gt = gn.graph_tuple_eval(_to_gt(td).copy())
-    tf.debugging.assert_near(out_td["edges"], out_gt.edges, atol=1e-6, rtol=1e-6)
-    tf.debugging.assert_near(out_td["nodes"], out_gt.nodes, atol=1e-6, rtol=1e-6)
+    _assert_allclose(out_td["edges"], out_gt.edges, atol=1e-6, rtol=1e-6)
+    _assert_allclose(out_td["nodes"], out_gt.nodes, atol=1e-6, rtol=1e-6)
 
 
 def test_unsorted_segment_min_max_or_zero_empty_groups_are_zero():
@@ -120,8 +135,8 @@ def test_unsorted_segment_min_max_or_zero_empty_groups_are_zero():
     out_max = unsorted_segment_max_or_zero(values, indices, num_groups)
 
     expected = tf.constant([[3.0], [0.0], [7.0], [0.0]], dtype=tf.float32)
-    tf.debugging.assert_equal(out_min, expected)
-    tf.debugging.assert_equal(out_max, expected)
+    _assert_equal(out_min, expected)
+    _assert_equal(out_max, expected)
 
 
 @pytest.mark.parametrize(

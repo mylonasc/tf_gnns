@@ -65,6 +65,45 @@ Run compatibility tests across TensorFlow versions:
 scripts/run_tf_matrix_tests.sh 2.17 2.18 2.19 2.20 2.21
 ```
 
+## Execution and compilation
+
+`tf_gnns` execution paths are eager by default so they can remain backend-portable with Keras 3.
+If you are using the TensorFlow backend and want graph compilation, compile at the application level:
+
+```python
+import tensorflow as tf
+from tf_gnns.models.graphnet import GraphNetMLP
+
+model = GraphNetMLP(units=32, core_steps=2)
+
+@tf.function
+def train_step(graph_tensor_dict):
+    with tf.GradientTape() as tape:
+        out = model(graph_tensor_dict)
+        loss = tf.reduce_mean(out["nodes"])  # example loss
+    grads = tape.gradient(loss, model.trainable_variables)
+    return loss, grads
+```
+
+This keeps library internals backend-agnostic while still allowing TensorFlow users to optimize execution.
+
+### Torch backend note
+
+For Keras 3 + Torch backend with Triton enabled, this repository is currently tested with:
+
+- `torch==2.11.0`
+- `triton==3.6.0` (installed as a dependency of torch 2.11.0)
+
+Recommended setup:
+
+```bash
+pip install "torch==2.11.0"
+KERAS_BACKEND=torch pytest -q tests
+```
+
+If you are using a different Torch/Triton combo and hit import-time crashes in
+`triton` / `torch._dynamo`, pinning to the combination above is the first step.
+
 Build the Docker test image for a specific TensorFlow version:
 ```
 docker build --build-arg TENSORFLOW_VERSION=2.17 -t tf-gnns:test .
@@ -110,6 +149,10 @@ After training, prediction ability is tested by comparing output to true sorted 
 This example shows how to adapt `torch_geometric` (aka PyG) inputs to `tf_gnns` inputs.
 The notebook can be run end-to-end in Google Colab, and out of the box it gives a test-set F1 score that is competitive with SOTA.
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/mylonasc/tf_gnns/blob/main/notebooks/03_ProteinProteinInteraction_MPNN.ipynb)
+
+## Keras 3 + Torch backend example
+This example demonstrates using the higher-level GraphNet constructs with Keras 3 configured for the PyTorch backend.
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/mylonasc/tf_gnns/blob/main/notebooks/04_keras3_torch_backend_graphnet.ipynb)
 
 ## Performance
 From initial tests, the performance of `tf_gnns` seems to be at least as good as `deepmind/graph_nets` when using tensor dictionaries.

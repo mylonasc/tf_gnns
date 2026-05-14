@@ -13,10 +13,10 @@ from tf_gnns.graphnet_utils import GraphNet
 
 from tf_gnns.lib.gt_ops import _assign_add_tensor_dict
 
-import tensorflow as tf
+import keras
 
 
-class GNCellMLP(tf.keras.layers.Layer):
+class GNCellMLP(keras.layers.Layer):
     """Single GraphNet processing block implemented with MLPs.
 
     This layer is close to `MLPGraphNetwork` from the `graph_nets` examples.
@@ -95,7 +95,7 @@ class GNCellMLP(tf.keras.layers.Layer):
         return self.gn_core.eval_tensor_dict(g_)
 
 
-class GraphNetMLP(tf.keras.layers.Layer):
+class GraphNetMLP(keras.layers.Layer):
     """Encode-process-decode GraphNet model implemented with MLPs."""
 
     def __init__(
@@ -255,7 +255,7 @@ class GraphNetMLP(tf.keras.layers.Layer):
         return g_
 
 
-class GraphIndep(tf.keras.layers.Layer):
+class GraphIndep(keras.layers.Layer):
     """Graph-independent block with optional global input handling."""
 
     def __init__(
@@ -340,7 +340,7 @@ class GraphIndep(tf.keras.layers.Layer):
         return self.gn_graph_indep.eval_tensor_dict(g_)
 
 
-class GraphNetMPNN_MLP(tf.keras.layers.Layer):
+class GraphNetMPNN_MLP(keras.layers.Layer):
     """MLP-based MPNN without graph-level global state updates."""
 
     def __init__(
@@ -376,8 +376,8 @@ class GraphNetMPNN_MLP(tf.keras.layers.Layer):
             recurrent: Reuse one process block across all `core_steps`.
             residual: Add residual updates at each process step.
             aggregation_function: Edge aggregation mode.
-            *args: Forwarded to `tf.keras.layers.Layer`.
-            **kwargs: Forwarded to `tf.keras.layers.Layer`.
+            *args: Forwarded to `keras.layers.Layer`.
+            **kwargs: Forwarded to `keras.layers.Layer`.
         """
 
         self.aggregation_function = aggregation_function

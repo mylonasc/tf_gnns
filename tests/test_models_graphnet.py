@@ -43,6 +43,57 @@ def test_graphnet_mpnn_mlp_non_residual_and_recurrent_runs():
     assert out["edges"].shape == td["edges"].shape
 
 
+def test_graphnet_mlp_respects_explicit_output_feature_sizes():
+    td = _make_td(with_global=True)
+    model = GraphNetMLP(
+        units=8,
+        core_steps=2,
+        recurrent=False,
+        residual=True,
+        node_output_size=7,
+        edge_output_size=5,
+        global_output_size=3,
+    )
+    out = model(td)
+
+    assert out["nodes"].shape == (td["nodes"].shape[0], 7)
+    assert out["edges"].shape == (td["edges"].shape[0], 5)
+    assert out["global_attr"].shape == (td["global_attr"].shape[0], 3)
+
+
+def test_graphnet_mlp_preserves_graph_structure_tensors():
+    td = _make_td(with_global=True)
+    model = GraphNetMLP(units=8, core_steps=1, recurrent=False, residual=True)
+    out = model(td)
+
+    for key in [
+        "senders",
+        "receivers",
+        "n_nodes",
+        "n_edges",
+        "global_reps_for_edges",
+        "global_reps_for_nodes",
+        "n_graphs",
+    ]:
+        tf.debugging.assert_equal(out[key], td[key])
+
+
+def test_graphnet_mpnn_respects_explicit_output_feature_sizes():
+    td = _make_td(with_global=False)
+    model = GraphNetMPNN_MLP(
+        units=8,
+        core_steps=2,
+        recurrent=False,
+        residual=True,
+        node_output_size=6,
+        edge_output_size=4,
+    )
+    out = model(td)
+
+    assert out["nodes"].shape == (td["nodes"].shape[0], 6)
+    assert out["edges"].shape == (td["edges"].shape[0], 4)
+
+
 def test_graphindep_builds_and_runs_with_and_without_global():
     td_with_global = _make_td(with_global=True)
     td_no_global = _make_td(with_global=False)

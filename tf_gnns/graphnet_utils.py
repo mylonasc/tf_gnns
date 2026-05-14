@@ -25,10 +25,8 @@ import os
 from enum import Enum
 from collections import OrderedDict
 
-# tensorflow imports:
-import tensorflow as tf
-import tensorflow.keras as keras
-from tensorflow.keras.layers import Input, Dense, Layer
+import keras
+from keras.layers import Input, Dense, Layer
 
 # Try to load tfp - of not just print something to let the user know that
 # they need to do their own probabilsitic ML stuff.
@@ -44,6 +42,7 @@ except ImportError:
 import numpy as np
 
 from .tfgnns_datastructures import Graph, GraphTuple, make_graph_tuple_from_graph_list
+from . import backend_ops
 
 
 # The following stores how larger is the aggregation operation
@@ -69,23 +68,6 @@ def _maybe_make_tuple(_v):
     return _v
 
 
-def _unsorted_segment_reduction_or_zero(reducer, values, indices, num_groups):
-    """
-    Common code for unsorted_segment_{min,max}_or_zero (below).
-    """
-
-    reduced = reducer(values, indices, num_groups)
-    present_indices = tf.math.unsorted_segment_max(
-        tf.ones_like(indices, dtype=reduced.dtype), indices, num_groups
-    )
-    present_indices = tf.clip_by_value(present_indices, 0, 1)
-    present_indices = tf.reshape(
-        present_indices, [num_groups] + [1] * (reduced.shape.ndims - 1)
-    )
-    reduced *= present_indices
-    return reduced
-
-
 def unsorted_segment_min_or_zero(
     values, indices, num_groups, name="unsorted_segment_min_or_zero"
 ):
@@ -101,10 +83,8 @@ def unsorted_segment_min_or_zero(
     Returns:
       A `Tensor` of the same type as `values`.
     """
-    with tf.name_scope(name):
-        return _unsorted_segment_reduction_or_zero(
-            tf.math.unsorted_segment_min, values, indices, num_groups
-        )
+    del name
+    return backend_ops.segment_min_or_zero(values, indices, num_groups)
 
 
 def unsorted_segment_max_or_zero(
@@ -122,10 +102,8 @@ def unsorted_segment_max_or_zero(
     Returns:
       A `Tensor` of the same type as `values`.
     """
-    with tf.name_scope(name):
-        return _unsorted_segment_reduction_or_zero(
-            tf.math.unsorted_segment_max, values, indices, num_groups
-        )
+    del name
+    return backend_ops.segment_max_or_zero(values, indices, num_groups)
 
 
 # Loading some self-assets:
@@ -470,7 +448,7 @@ class GraphNet:
 
         def print_summary_if_keras_model(mod_, which_mod):
             print(which_mod)
-            if isinstance(mod_, tf.keras.Model):
+            if isinstance(mod_, keras.Model):
                 mod_.summary()
             else:
                 print(mod_)
@@ -521,18 +499,14 @@ class GraphNet:
             return ss
 
         details = ""
-        if self.node_function is not None and isinstance(
-            self.node_function, tf.keras.Model
-        ):
+        if self.node_function is not None and isinstance(self.node_function, keras.Model):
             details += _get_html_repr_keras_fn(self.node_function, "Node")
 
-        if self.edge_function is not None and isinstance(
-            self.edge_function, tf.keras.Model
-        ):
+        if self.edge_function is not None and isinstance(self.edge_function, keras.Model):
             details += _get_html_repr_keras_fn(self.edge_function, "Edge")
 
         if self.global_function is not None and isinstance(
-            self.global_function, tf.keras.Model
+            self.global_function, keras.Model
         ):
             details += _get_html_repr_keras_fn(self.global_function, "Global")
 
@@ -565,7 +539,7 @@ class GraphNet:
             if (
                 self.edge_aggregation_function is not None
                 and not self.is_graph_independent
-            ) and not isinstance(self.edge_aggregation_function, type(tf.reduce_mean)):
+            ) and hasattr(self.edge_aggregation_function, "weights"):
                 # If the edge aggregation function has weights (it is not a simple aggregation like "mean") accum., append the weights:
                 all_weights.extend(self.edge_aggregation_function.weights)
 
@@ -593,6 +567,13 @@ class GraphNet:
         # Outputs:
         #  A
 
+        tf_graph_tuple.nodes = backend_ops.convert_to_tensor(tf_graph_tuple.nodes)
+        tf_graph_tuple.edges = backend_ops.convert_to_tensor(tf_graph_tuple.edges)
+        if tf_graph_tuple.global_attr is not None:
+            tf_graph_tuple.global_attr = backend_ops.convert_to_tensor(
+                tf_graph_tuple.global_attr
+            )
+
         # if the graph is not graph_indep compute the edge-messages with the aggregator.
 
         # 1) compute the edge functions
@@ -602,11 +583,13 @@ class GraphNet:
             edge_inputs.update({EdgeInput.EDGE_STATE.value: v})
 
         if EdgeInput.SENDER_NODE_STATE.value in self.edge_input_dict.keys():
-            v = tf.gather(tf_graph_tuple.nodes, tf_graph_tuple.senders, axis=0)
+            v = backend_ops.gather(tf_graph_tuple.nodes, tf_graph_tuple.senders, axis=0)
             edge_inputs.update({EdgeInput.SENDER_NODE_STATE.value: v})
 
         if EdgeInput.RECEIVER_NODE_STATE.value in self.edge_input_dict.keys():
-            v = tf.gather(tf_graph_tuple.nodes, tf_graph_tuple.receivers, axis=0)
+            v = backend_ops.gather(
+                tf_graph_tuple.nodes, tf_graph_tuple.receivers, axis=0
+            )
             edge_inputs.update({EdgeInput.RECEIVER_NODE_STATE.value: v})
 
         if EdgeInput.GLOBAL_STATE.value in self.edge_input_dict.keys():
@@ -616,7 +599,7 @@ class GraphNet:
             #    edge_reps.extend([k]*e)
             edge_inputs.update(
                 {
-                    EdgeInput.GLOBAL_STATE.value: tf.gather(
+                    EdgeInput.GLOBAL_STATE.value: backend_ops.gather(
                         tf_graph_tuple.global_attr, edge_reps, axis=0
                     )
                 }
@@ -628,7 +611,7 @@ class GraphNet:
         node_inputs = {}
         if NodeInput.EDGE_AGG_STATE.value in self.node_input_dict.keys():
             if self.has_seg_aggregator_node_to_edge:
-                max_seq = int(tf.reduce_sum(tf_graph_tuple.n_nodes))
+                max_seq = backend_ops.first_dim(tf_graph_tuple.nodes)
                 edge_to_nodes_messages = self.edge_aggregation_function_seg(
                     tf_graph_tuple.edges, tf_graph_tuple.receivers, max_seq
                 )
@@ -644,7 +627,7 @@ class GraphNet:
             node_reps = tf_graph_tuple._global_reps_for_nodes
             node_inputs.update(
                 {
-                    NodeInput.GLOBAL_STATE.value: tf.gather(
+                    NodeInput.GLOBAL_STATE.value: backend_ops.gather(
                         tf_graph_tuple.global_attr, node_reps
                     )
                 }
@@ -692,7 +675,6 @@ class GraphNet:
         return tf_graph_tuple
         # no changes in Graph topology - nothing else to do!
 
-    @tf.function
     def edge_block(
         self,
         edges=None,
@@ -713,18 +695,18 @@ class GraphNet:
             edge_inputs.update({EdgeInput.EDGE_STATE.value: v})
 
         if EdgeInput.SENDER_NODE_STATE.value in self.edge_input_dict.keys():
-            v = tf.gather(nodes, senders, axis=0)
+            v = backend_ops.gather(nodes, senders, axis=0)
             edge_inputs.update({EdgeInput.SENDER_NODE_STATE.value: v})
 
         if EdgeInput.RECEIVER_NODE_STATE.value in self.edge_input_dict.keys():
-            v = tf.gather(nodes, receivers, axis=0)
+            v = backend_ops.gather(nodes, receivers, axis=0)
             edge_inputs.update({EdgeInput.RECEIVER_NODE_STATE.value: v})
 
         if EdgeInput.GLOBAL_STATE.value in self.edge_input_dict.keys():
             edge_reps = global_reps_for_edges
             edge_inputs.update(
                 {
-                    EdgeInput.GLOBAL_STATE.value: tf.gather(
+                    EdgeInput.GLOBAL_STATE.value: backend_ops.gather(
                         global_attr, edge_reps, axis=0
                     )
                 }
@@ -733,7 +715,6 @@ class GraphNet:
         edges = self.edge_function(edge_inputs)
         return edges
 
-    @tf.function
     def node_block(
         self,
         edges=None,
@@ -756,7 +737,7 @@ class GraphNet:
         if NodeInput.GLOBAL_STATE.value in self.node_input_dict.keys():
             node_inputs.update(
                 {
-                    NodeInput.GLOBAL_STATE.value: tf.gather(
+                    NodeInput.GLOBAL_STATE.value: backend_ops.gather(
                         global_attr, global_reps_for_nodes
                     )
                 }
@@ -764,7 +745,7 @@ class GraphNet:
 
         if NodeInput.EDGE_AGG_STATE.value in self.node_input_dict.keys():
             if self.has_seg_aggregator_edge_to_global:
-                max_seq = int(tf.reduce_sum(n_nodes))
+                max_seq = backend_ops.first_dim(nodes)
                 edge_to_nodes_messages = self.edge_aggregation_function_seg(
                     edges, receivers, max_seq
                 )
@@ -776,7 +757,6 @@ class GraphNet:
 
         return nodes
 
-    @tf.function
     def global_block(
         self,
         edges=None,
@@ -793,7 +773,7 @@ class GraphNet:
 
         global_inputs = {}
         if n_graphs is None:
-            n_graphs = len(n_edges)
+            n_graphs = backend_ops.first_dim(global_attr)
 
         if GlobalInput.EDGE_AGG_STATE.value in self.global_input_dict.keys():
             if (
@@ -823,7 +803,6 @@ class GraphNet:
             global_attr = self.global_function(global_inputs)
         return global_attr
 
-    @tf.function
     def eval_tensor_dict(self, d):
         """
         For better performance this uses a dictionary of all the necessary tensors
@@ -834,9 +813,11 @@ class GraphNet:
           'edges','nodes','senders','receivers','n_edges','n_nodes','global_attr','global_reps_for_edges','global_reps_for_nodes'
 
         """
-        d_ = (
-            d.copy()
-        )  # Working on a copy of d (for tf.function compilation requirement).
+        d_ = d.copy()
+        for k, v in d_.items():
+            if v is None:
+                continue
+            d_[k] = backend_ops.convert_to_tensor(v)
         if self.edge_function is not None:
             new_edges = self.edge_block(**d_)
             d_["edges"] = new_edges
@@ -917,7 +898,7 @@ class GraphNet:
                 )
 
             else:
-                model_fcn = tf.keras.models.load_model(
+                model_fcn = keras.models.load_model(
                     d_,
                     custom_objects={
                         "SimpleAggLayerDense": SimpleAggLayerDense,
@@ -974,11 +955,9 @@ def make_mlp(units, input_tensor_list, output_shape, activation="relu", **kwargs
             self.idx_local_layer = 0
 
         def make(self, *args, **kwargs):
-            with tf.name_scope("dense") as scope:
-                kwargs["name"] = scope[:-1] + "_%i" % self.idx_local_layer
-                kwargs["name"] = kwargs["name"].replace("/", "-")
-                self.idx_local_layer += 1
-                return Dense(*args, **kwargs)
+            kwargs["name"] = "dense_%i" % self.idx_local_layer
+            self.idx_local_layer += 1
+            return Dense(*args, **kwargs)
 
     dense_maker = DenseMaker()
     if not isinstance(units, list):
@@ -1005,7 +984,7 @@ def make_mlp(units, input_tensor_list, output_shape, activation="relu", **kwargs
                     y = dense_maker.make(u)(y)
 
     if layernorm_last_layer:
-        y = tf.keras.layers.LayerNormalization()(y)
+        y = keras.layers.LayerNormalization()(y)
 
     if "model_name" in kwargs.keys():
         # name= kwargs['model_name']
@@ -1013,7 +992,7 @@ def make_mlp(units, input_tensor_list, output_shape, activation="relu", **kwargs
     else:
         name = None
 
-    return tf.keras.Model(inputs=input_tensor_list, outputs=y, name=name)
+    return keras.Model(inputs=input_tensor_list, outputs=y, name=name)
 
 
 def make_node_mlp(
@@ -1061,12 +1040,8 @@ def make_node_mlp(
         )
         all_inputs.append(global_state_in)
 
-    with tf.name_scope("node_fn") as scope:
-        kwargs["model_name"] = scope + "model"
-        kwargs["model_name"] = kwargs["model_name"].replace("/", "-")
-        return make_mlp(
-            units, all_inputs, node_emb_size, activation=activation, **kwargs
-        )
+    kwargs["model_name"] = "node_fn-model"
+    return make_mlp(units, all_inputs, node_emb_size, activation=activation, **kwargs)
 
 
 def make_global_mlp(
@@ -1133,11 +1108,10 @@ def make_global_mlp(
         )
         global_inputs_list.append(edge_agg_state)
 
-    with tf.name_scope("glob_fn") as scope:
-        kwargs["model_name"] = scope + "model"
-        return make_mlp(
-            units, global_inputs_list, global_emb_size, activation=activation, **kwargs
-        )
+    kwargs["model_name"] = "glob_fn-model"
+    return make_mlp(
+        units, global_inputs_list, global_emb_size, activation=activation, **kwargs
+    )
 
 
 def make_edge_mlp(
@@ -1189,43 +1163,42 @@ def make_edge_mlp(
         )
         tensor_in_list.append(global_state_in)
 
-    with tf.name_scope("edge_fn") as scope:
-        kwargs["model_name"] = scope + "model"
-        if graph_indep:
-            try:
-                assert use_sender_out_state is False
-            except AssertionError:
-                ValueError(
-                    "The receiver and sender nodes for graph-independent blocks "
-                    "should not be used as inputs to the edge function! It was "
-                    "attempted to create an edge function for a graph-indep. "
-                    "block containing receiver and sender states as inputs."
-                )
-            ## Building the edge MLP:
-            tensor_input_list = [edge_state_in]
-            return make_mlp(
-                units,
-                tensor_input_list,
-                edge_output_state_size,
-                activation=activation,
-                **kwargs,
+    kwargs["model_name"] = "edge_fn-model"
+    if graph_indep:
+        try:
+            assert use_sender_out_state is False
+        except AssertionError:
+            ValueError(
+                "The receiver and sender nodes for graph-independent blocks "
+                "should not be used as inputs to the edge function! It was "
+                "attempted to create an edge function for a graph-indep. "
+                "block containing receiver and sender states as inputs."
             )
-        else:
-            ## Building the edge MLP:
-            return make_mlp(
-                units,
-                tensor_in_list,
-                edge_output_state_size,
-                activation=activation,
-                **kwargs,
-            )
+        ## Building the edge MLP:
+        tensor_input_list = [edge_state_in]
+        return make_mlp(
+            units,
+            tensor_input_list,
+            edge_output_state_size,
+            activation=activation,
+            **kwargs,
+        )
+    else:
+        ## Building the edge MLP:
+        return make_mlp(
+            units,
+            tensor_in_list,
+            edge_output_state_size,
+            activation=activation,
+            **kwargs,
+        )
 
 
 DICT_AGG = {
-    "mean": (tf.reduce_mean, tf.math.unsorted_segment_mean),
-    "sum": (tf.reduce_sum, tf.math.unsorted_segment_sum),
-    "max": (tf.reduce_max, unsorted_segment_max_or_zero),
-    "min": (tf.reduce_min, unsorted_segment_min_or_zero),
+    "mean": (backend_ops.reduce_mean, backend_ops.segment_mean),
+    "sum": (backend_ops.reduce_sum, backend_ops.segment_sum),
+    "max": (backend_ops.reduce_max, unsorted_segment_max_or_zero),
+    "min": (backend_ops.reduce_min, unsorted_segment_min_or_zero),
 }
 
 
@@ -1264,10 +1237,10 @@ def make_keras_simple_agg(input_size, agg_type):
        agg_type   : ['mean','sum','min','max']
     """
     dict_agg = {
-        "mean": (tf.reduce_mean, tf.math.unsorted_segment_mean),
-        "sum": (tf.reduce_sum, tf.math.unsorted_segment_sum),
-        "max": (tf.reduce_max, unsorted_segment_max_or_zero),
-        "min": (tf.reduce_min, unsorted_segment_min_or_zero),
+        "mean": (backend_ops.reduce_mean, backend_ops.segment_mean),
+        "sum": (backend_ops.reduce_sum, backend_ops.segment_sum),
+        "max": (backend_ops.reduce_max, unsorted_segment_max_or_zero),
+        "min": (backend_ops.reduce_min, unsorted_segment_min_or_zero),
     }
 
     # will create both models - the "unsorted segment sum" type (for high performance graph tuple computation) and the safe/slow/easy aggregator.
@@ -1277,7 +1250,7 @@ def make_keras_simple_agg(input_size, agg_type):
     # aggs = dict_agg[agg_type]
     # y = aggs[0](x,0)
     y_basic = SimpleAggLayerDense(agg_type=agg_type)(x)
-    m_basic = tf.keras.Model(
+    m_basic = keras.Model(
         inputs=x, outputs=y_basic, name="basic_%s_aggregator" % agg_type
     )
 
@@ -1296,15 +1269,15 @@ def make_mean_max_agg(input_size):
     x = Input(shape=input_size, name="edge_messages")
     v1 = SimpleAggLayerDense(agg_type="mean")(x)
     v2 = SimpleAggLayerDense(agg_type="max")(x)
-    agg_out = tf.keras.layers.Concatenate()([v1, v2])
-    m_basic = tf.keras.Model(inputs=x, outputs=agg_out, name="basic_meanmax_aggregator")
+    agg_out = keras.layers.Concatenate()([v1, v2])
+    m_basic = keras.Model(inputs=x, outputs=agg_out, name="basic_meanmax_aggregator")
 
     def tf_function_agg(x, recv, max_seq):
         v1, v2 = (
-            tf.math.unsorted_segment_mean(x, recv, max_seq),
-            tf.math.unsorted_segment_max(x, recv, max_seq),
+            backend_ops.segment_mean(x, recv, max_seq),
+            backend_ops.segment_max(x, recv, max_seq),
         )
-        agg_ss = tf.concat([v1, v2], axis=-1)
+        agg_ss = backend_ops.concat([v1, v2], axis=-1)
         return agg_ss
 
     return m_basic, tf_function_agg
@@ -1325,42 +1298,42 @@ def make_mean_max_min_agg(input_size):
     v1 = SimpleAggLayerDense(agg_type="mean")(x)
     v2 = SimpleAggLayerDense(agg_type="max")(x)
     v3 = SimpleAggLayerDense(agg_type="min")(x)
-    agg_out = tf.keras.layers.Concatenate()([v1, v2, v3])
-    m_basic = tf.keras.Model(
+    agg_out = keras.layers.Concatenate()([v1, v2, v3])
+    m_basic = keras.Model(
         inputs=x, outputs=agg_out, name="basic_meanmaxmin_aggregator"
     )
 
     def tf_function_agg(x, recv, max_seq):
         v1, v2, v3 = (
-            tf.math.unsorted_segment_mean(x, recv, max_seq),
+            backend_ops.segment_mean(x, recv, max_seq),
             unsorted_segment_max_or_zero(x, recv, max_seq),
             unsorted_segment_min_or_zero(x, recv, max_seq),
         )
-        agg_ss = tf.concat([v1, v2, v3], axis=-1)
+        agg_ss = backend_ops.concat([v1, v2, v3], axis=-1)
         return agg_ss
 
     return m_basic, tf_function_agg
 
 
 def make_mean_max_min_sum_agg(input_size):
-    x = tf.keras.Input(shape=input_size)
+    x = keras.Input(shape=input_size)
     v1 = SimpleAggLayerDense(agg_type="mean")(x)
     v2 = SimpleAggLayerDense(agg_type="max")(x)
     v3 = SimpleAggLayerDense(agg_type="min")(x)
     v4 = SimpleAggLayerDense(agg_type="sum")(x)
-    agg_out = tf.keras.layers.Concatenate()([v1, v2, v3, v4])
-    m_basic = tf.keras.Model(
+    agg_out = keras.layers.Concatenate()([v1, v2, v3, v4])
+    m_basic = keras.Model(
         inputs=x, outputs=agg_out, name="basic_meanmaxminsum_aggregator"
     )
 
     def tf_function_agg(x, recv, max_seq):
         v1, v2, v3, v4 = (
-            tf.math.unsorted_segment_mean(x, recv, max_seq),
-            tf.math.unsorted_segment_max(x, recv, max_seq),
-            tf.math.unsorted_segment_min(x, recv, max_seq),
-            tf.math.unsorted_segment_sum(x, recv, max_seq),
+            backend_ops.segment_mean(x, recv, max_seq),
+            backend_ops.segment_max(x, recv, max_seq),
+            backend_ops.segment_min(x, recv, max_seq),
+            backend_ops.segment_sum(x, recv, max_seq),
         )
-        agg_ss = tf.concat([v1, v2, v3, v4], axis=-1)
+        agg_ss = backend_ops.concat([v1, v2, v3, v4], axis=-1)
         return agg_ss
 
     return m_basic, tf_function_agg
@@ -1639,8 +1612,7 @@ def make_mlp_graphnet_functions(
             assert (
                 global_input_size is not None
             )  # The case where the GT has a global. It is allowed to be None when the global is ignored for the global MLP computation.
-        with tf.name_scope("global_mlp"):
-            global_mlp = make_global_mlp(units, **global_mlp_params, **kwargs)
+        global_mlp = make_global_mlp(units, **global_mlp_params, **kwargs)
     else:
         global_mlp = None
 

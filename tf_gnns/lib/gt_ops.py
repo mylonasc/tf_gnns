@@ -1,6 +1,6 @@
 """Operations on tensor dictionaries that represent graph tuples."""
 
-import tensorflow as tf
+from .. import backend_ops
 
 GRAPH_TUPLE_STRUCTURE = [
     "senders",
@@ -27,14 +27,14 @@ def _zero_graph(g_, state_size=None):
     """
     g_copy = g_.copy()
     if state_size is None:
-        g_copy["nodes"] = tf.zeros_like(g_["nodes"])
-        g_copy["edges"] = tf.zeros_like(g_["edges"])
-        g_copy["global_attr"] = tf.zeros_like(g_["global_attr"])
+        g_copy["nodes"] = backend_ops.zeros_like(g_["nodes"])
+        g_copy["edges"] = backend_ops.zeros_like(g_["edges"])
+        g_copy["global_attr"] = backend_ops.zeros_like(g_["global_attr"])
     else:
-        g_copy["nodes"] = tf.zeros([g_["nodes"].shape[0], state_size], tf.float32)
-        g_copy["edges"] = tf.zeros([g_["edges"].shape[0], state_size], tf.float32)
-        g_copy["global_attr"] = tf.zeros(
-            [g_["global_attr"].shape[0], state_size], dtype=tf.float32
+        g_copy["nodes"] = backend_ops.zeros([g_["nodes"].shape[0], state_size])
+        g_copy["edges"] = backend_ops.zeros([g_["edges"].shape[0], state_size])
+        g_copy["global_attr"] = backend_ops.zeros(
+            [g_["global_attr"].shape[0], state_size], dtype="float32"
         )
 
     return g_copy
@@ -52,14 +52,18 @@ def _zero_graph_tf(g_, state_size=None):
     """
     g_copy = g_.copy()
     if state_size is None:
-        g_copy["nodes"] = tf.zeros_like(g_["nodes"])
-        g_copy["edges"] = tf.zeros_like(g_["edges"])
-        g_copy["global_attr"] = tf.zeros_like(g_["global_attr"])
+        g_copy["nodes"] = backend_ops.zeros_like(g_["nodes"])
+        g_copy["edges"] = backend_ops.zeros_like(g_["edges"])
+        g_copy["global_attr"] = backend_ops.zeros_like(g_["global_attr"])
     else:
-        g_copy["nodes"] = tf.zeros([tf.shape(g_["nodes"])[0], state_size], tf.float32)
-        g_copy["edges"] = tf.zeros([tf.shape(g_["edges"])[0], state_size], tf.float32)
-        g_copy["global_attr"] = tf.zeros(
-            [tf.shape(g_["global_attr"])[0], state_size], dtype=tf.float32
+        g_copy["nodes"] = backend_ops.zeros(
+            [backend_ops.first_dim(g_["nodes"]), state_size]
+        )
+        g_copy["edges"] = backend_ops.zeros(
+            [backend_ops.first_dim(g_["edges"]), state_size]
+        )
+        g_copy["global_attr"] = backend_ops.zeros(
+            [backend_ops.first_dim(g_["global_attr"]), state_size], dtype="float32"
         )
 
     return g_copy
@@ -94,10 +98,10 @@ def _concat_tensordicts(t1, t2):
         A tensor dictionary containing concatenated features.
     """
     td_new = _copy_structure(t1)
-    td_new["nodes"] = tf.concat([t1["nodes"], t2["nodes"]], axis=-1)
-    td_new["edges"] = tf.concat([t1["edges"], t2["edges"]], axis=-1)
+    td_new["nodes"] = backend_ops.concat([t1["nodes"], t2["nodes"]], axis=-1)
+    td_new["edges"] = backend_ops.concat([t1["edges"], t2["edges"]], axis=-1)
     if "global_attr" in t1:
-        td_new["global_attr"] = tf.concat(
+        td_new["global_attr"] = backend_ops.concat(
             [t1["global_attr"], t2["global_attr"]], axis=-1
         )
     return td_new
