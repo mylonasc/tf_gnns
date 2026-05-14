@@ -150,6 +150,11 @@ This example shows how to adapt `torch_geometric` (aka PyG) inputs to `tf_gnns` 
 The notebook can be run end-to-end in Google Colab, and out of the box it gives a test-set F1 score that is competitive with SOTA.
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/mylonasc/tf_gnns/blob/main/notebooks/03_ProteinProteinInteraction_MPNN.ipynb)
 
+## Keras 3 + Torch backend example
+This example demonstrates using the higher-level GraphNet constructs with Keras 3 configured for the PyTorch backend.
+
+[`notebooks/04_keras3_torch_backend_graphnet.ipynb`](notebooks/04_keras3_torch_backend_graphnet.ipynb)
+
 ## Performance
 From initial tests, the performance of `tf_gnns` seems to be at least as good as `deepmind/graph_nets` when using tensor dictionaries.
 
