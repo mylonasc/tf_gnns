@@ -567,6 +567,13 @@ class GraphNet:
         # Outputs:
         #  A
 
+        tf_graph_tuple.nodes = backend_ops.convert_to_tensor(tf_graph_tuple.nodes)
+        tf_graph_tuple.edges = backend_ops.convert_to_tensor(tf_graph_tuple.edges)
+        if tf_graph_tuple.global_attr is not None:
+            tf_graph_tuple.global_attr = backend_ops.convert_to_tensor(
+                tf_graph_tuple.global_attr
+            )
+
         # if the graph is not graph_indep compute the edge-messages with the aggregator.
 
         # 1) compute the edge functions
@@ -806,9 +813,11 @@ class GraphNet:
           'edges','nodes','senders','receivers','n_edges','n_nodes','global_attr','global_reps_for_edges','global_reps_for_nodes'
 
         """
-        d_ = (
-            d.copy()
-        )  # Working on a copy of d (for tf.function compilation requirement).
+        d_ = d.copy()
+        for k, v in d_.items():
+            if v is None:
+                continue
+            d_[k] = backend_ops.convert_to_tensor(v)
         if self.edge_function is not None:
             new_edges = self.edge_block(**d_)
             d_["edges"] = new_edges

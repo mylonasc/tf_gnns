@@ -130,10 +130,15 @@ def _present_segment_mask(indices, num_groups, dtype):
     return keras.ops.expand_dims(present, axis=-1)
 
 
+def _zero_absent_segments(reduced, indices, num_groups):
+    present = _present_segment_mask(indices, num_groups, reduced.dtype)
+    zeros = keras.ops.zeros_like(reduced)
+    return keras.ops.where(present > 0, reduced, zeros)
+
+
 def segment_max_or_zero(values, indices, num_groups):
     reduced = segment_max(values, indices, num_groups)
-    present = _present_segment_mask(indices, num_groups, reduced.dtype)
-    return reduced * present
+    return _zero_absent_segments(reduced, indices, num_groups)
 
 
 def segment_mean(values, indices, num_groups):
@@ -158,5 +163,4 @@ def segment_min(values, indices, num_groups):
 
 def segment_min_or_zero(values, indices, num_groups):
     reduced = segment_min(values, indices, num_groups)
-    present = _present_segment_mask(indices, num_groups, reduced.dtype)
-    return reduced * present
+    return _zero_absent_segments(reduced, indices, num_groups)

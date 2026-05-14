@@ -30,6 +30,30 @@ jobs:
           KERAS_BACKEND: tensorflow
         run: uv run pytest -q tests/test_backend_ops.py
 
+  keras-torch-backend-smoke:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Install PyTorch CPU wheels
+        run: uv pip install --python .venv/bin/python torch --index-url https://download.pytorch.org/whl/cpu
+
+      - name: Run backend smoke tests (Keras Torch backend)
+        env:
+          KERAS_BACKEND: torch
+        run: uv run pytest -q tests
+
   lint-docstrings:
     runs-on: ubuntu-latest
     continue-on-error: true

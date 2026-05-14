@@ -275,7 +275,6 @@ class GraphTuple:
         n_nodes,
         n_edges,
         global_attr=None,
-        sort_receivers_to_edges=False,
         global_reps_for_nodes=None,
         global_reps_for_edges=None,
         n_graphs=None,
@@ -291,7 +290,6 @@ class GraphTuple:
             n_nodes    : a list, a numpy array or a tf.Tensor containing how many nodes are in each graph represented by the nodes and edges in the object
             n_edges    : a list,a numpy array or a tf.Tensor containing how many edges are in each graph represented by the nodes and edges in the object
             global_attr: (optional) a `tf.Tensor` or a `np.array` containing global attributes (first size - self.n_graphs)
-            sort_receivers :  (optional) whether to sort the edges on construction, allowing for not needing to sort the output of the node receiver aggregators.
             global_reps_for_edges : (optional) used for the aggregation of the global var.
             global_reps_for_nodes : (optional) used for the aggregation of the global var.
             n_graphs   : (optional)

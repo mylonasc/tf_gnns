@@ -1,7 +1,15 @@
 import tensorflow as tf
+import numpy as np
+import keras
 
 from tf_gnns import backend_ops
 from tf_gnns.graphnet_utils import unsorted_segment_max_or_zero, unsorted_segment_min_or_zero
+
+
+def _to_numpy(x):
+    if hasattr(x, "detach"):
+        x = x.detach()
+    return keras.ops.convert_to_numpy(x)
 
 
 def test_segment_mean_matches_tf_unsorted_segment_mean():
@@ -11,7 +19,7 @@ def test_segment_mean_matches_tf_unsorted_segment_mean():
 
     got = backend_ops.segment_mean(values, indices, num_groups)
     expected = tf.math.unsorted_segment_mean(values, tf.constant(indices), num_groups)
-    tf.debugging.assert_near(got, expected, atol=1e-6, rtol=1e-6)
+    np.testing.assert_allclose(_to_numpy(got), _to_numpy(expected), atol=1e-6, rtol=1e-6)
 
 
 def test_segment_zero_semantics_match_existing_functions():
@@ -24,5 +32,5 @@ def test_segment_zero_semantics_match_existing_functions():
 
     expected_min = unsorted_segment_min_or_zero(values, tf.constant(indices), num_groups)
     expected_max = unsorted_segment_max_or_zero(values, tf.constant(indices), num_groups)
-    tf.debugging.assert_equal(got_min, expected_min)
-    tf.debugging.assert_equal(got_max, expected_max)
+    np.testing.assert_equal(_to_numpy(got_min), _to_numpy(expected_min))
+    np.testing.assert_equal(_to_numpy(got_max), _to_numpy(expected_max))
