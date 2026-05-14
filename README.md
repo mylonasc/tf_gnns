@@ -87,6 +87,23 @@ def train_step(graph_tensor_dict):
 
 This keeps library internals backend-agnostic while still allowing TensorFlow users to optimize execution.
 
+### Torch backend note
+
+For Keras 3 + Torch backend with Triton enabled, this repository is currently tested with:
+
+- `torch==2.11.0`
+- `triton==3.6.0` (installed as a dependency of torch 2.11.0)
+
+Recommended setup:
+
+```bash
+pip install "torch==2.11.0"
+KERAS_BACKEND=torch pytest -q tests
+```
+
+If you are using a different Torch/Triton combo and hit import-time crashes in
+`triton` / `torch._dynamo`, pinning to the combination above is the first step.
+
 Build the Docker test image for a specific TensorFlow version:
 ```
 docker build --build-arg TENSORFLOW_VERSION=2.17 -t tf-gnns:test .
