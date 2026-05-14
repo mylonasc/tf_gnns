@@ -46,6 +46,9 @@ jobs:
       - name: Set up uv
         uses: astral-sh/setup-uv@v5
 
+      - name: Create virtual environment
+        run: uv venv
+
       - name: Install tested Torch + Triton stack
         run: uv pip install --python .venv/bin/python torch==2.11.0
 
