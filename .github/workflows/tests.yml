@@ -9,6 +9,27 @@ on:
       - main
 
 jobs:
+  keras-backend-smoke:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Run backend smoke tests (Keras TF backend)
+        env:
+          KERAS_BACKEND: tensorflow
+        run: uv run pytest -q tests/test_backend_ops.py
+
   lint-docstrings:
     runs-on: ubuntu-latest
     continue-on-error: true

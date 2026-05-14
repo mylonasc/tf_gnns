@@ -65,6 +65,28 @@ Run compatibility tests across TensorFlow versions:
 scripts/run_tf_matrix_tests.sh 2.17 2.18 2.19 2.20 2.21
 ```
 
+## Execution and compilation
+
+`tf_gnns` execution paths are eager by default so they can remain backend-portable with Keras 3.
+If you are using the TensorFlow backend and want graph compilation, compile at the application level:
+
+```python
+import tensorflow as tf
+from tf_gnns.models.graphnet import GraphNetMLP
+
+model = GraphNetMLP(units=32, core_steps=2)
+
+@tf.function
+def train_step(graph_tensor_dict):
+    with tf.GradientTape() as tape:
+        out = model(graph_tensor_dict)
+        loss = tf.reduce_mean(out["nodes"])  # example loss
+    grads = tape.gradient(loss, model.trainable_variables)
+    return loss, grads
+```
+
+This keeps library internals backend-agnostic while still allowing TensorFlow users to optimize execution.
+
 Build the Docker test image for a specific TensorFlow version:
 ```
 docker build --build-arg TENSORFLOW_VERSION=2.17 -t tf-gnns:test .

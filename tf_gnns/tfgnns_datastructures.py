@@ -1,7 +1,8 @@
 """Classes for basic manipulation of GraphNet"""
 
 import numpy as np
-import tensorflow as tf
+
+from . import backend_ops
 
 
 def _copy_any_ds(val):
@@ -15,8 +16,8 @@ def _copy_any_ds(val):
     if isinstance(val, np.ndarray) or isinstance(val, list):
         valout = val.copy()
 
-    if isinstance(val, tf.Variable) or isinstance(val, tf.Tensor):
-        valout = tf.identity(
+    if backend_ops.is_tensor(val):
+        valout = backend_ops.identity(
             val
         )  # TODO: maybe have a flag to override this? Adding more ops does not always make sense.
 
@@ -95,12 +96,14 @@ class Graph:
         """
         is_equal = True
         for n1, n2 in zip(self.nodes, g2.nodes):
-            is_equal = is_equal and tf.reduce_all(
+            is_equal = is_equal and backend_ops.reduce_all(
                 n1.node_attr_tensor == n2.node_attr_tensor
             )
 
         for e1, e2 in zip(self.edges, g2.edges):
-            is_equal = is_equal and tf.reduce_all(e1.edge_tensor == e2.edge_tensor)
+            is_equal = is_equal and backend_ops.reduce_all(
+                e1.edge_tensor == e2.edge_tensor
+            )
         if self.has_global:
             is_equal = is_equal and (g2.global_attr == self.global_attr)
         return bool(is_equal)
@@ -253,8 +256,10 @@ def make_graph_tuple_from_graph_list(list_of_graphs):
     # The 2nd dimension (dimension index 1) should be of size 1 (there is a test in the start of the constructor).
     # The same framework supports efficient computation on graphs of the same topology batched together where the first dimension
     # is the batched size. It is required that such graphs were provided for the construction (or at least the first dimension is "1").
-    edges_attr_stacked = tf.squeeze(tf.stack(edge_attr_tensor, 0), 1)
-    nodes_attr_stacked = tf.squeeze(tf.stack(nodes_attr_tensor, 0), 1)
+    edges_attr_stacked = backend_ops.squeeze(backend_ops.stack(edge_attr_tensor, 0), 1)
+    nodes_attr_stacked = backend_ops.squeeze(
+        backend_ops.stack(nodes_attr_tensor, 0), 1
+    )
     return GraphTuple(
         nodes_attr_stacked, edges_attr_stacked, senders, receivers, n_nodes, n_edges
     )  # , graph_id)
@@ -348,7 +353,7 @@ class GraphTuple:
     def assign_global(self, global_attr, check_shape=False):
         self.has_global = True
         if check_shape:
-            assert tf.shape(global_attr)[0] == self.n_graphs
+            assert int(backend_ops.first_dim(global_attr)) == self.n_graphs
         self.global_attr = global_attr
 
     def is_equal_by_value(self, other_graph_tuple):
@@ -374,7 +379,7 @@ class GraphTuple:
         def _equals_or_all_equals(v1_, v2_):
             if isinstance(v1_, list) and isinstance(v2_, list):
                 return v1_ == v2_
-            if isinstance(v1_, tf.Variable) and isinstance(v2_, tf.Variable):
+            if backend_ops.is_tensor(v1_) and backend_ops.is_tensor(v2_):
                 return all(v1_ == v2_)
             if isinstance(v1_, np.array) and isinstance(v2_.np.array):
                 return all(v1_ == v2_)
@@ -444,9 +449,13 @@ class GraphTuple:
         ]
         senders = senders - start_idx_nodes
         receivers = receivers - start_idx_nodes
-        nodes = [Node(node_attr[tf.newaxis]) for node_attr in nodes_attrs]
+        nodes = [Node(backend_ops.expand_dims(node_attr, axis=0)) for node_attr in nodes_attrs]
         edges = [
-            Edge(edge_attr_tensor[tf.newaxis], nodes[node_from_idx], nodes[node_to_idx])
+            Edge(
+                backend_ops.expand_dims(edge_attr_tensor, axis=0),
+                nodes[node_from_idx],
+                nodes[node_to_idx],
+            )
             for edge_attr_tensor, node_from_idx, node_to_idx in zip(
                 edge_attr, senders, receivers
             )
@@ -471,7 +480,7 @@ def _graphtuple_to_tensor_dict(gt_):
         if v is None:
             return None
         else:
-            return tf.constant(v)
+            return backend_ops.convert_to_tensor(v)
 
     return {
         "edges": _tf_constant_or_none(gt_.edges),
