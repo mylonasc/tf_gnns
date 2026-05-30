@@ -301,6 +301,11 @@ class GraphTuple:
 
     A ``GraphTuple`` stores all node and edge features in contiguous tensors and
     keeps graph boundaries via `n_nodes` and `n_edges` vectors.
+
+    The ``GraphTuple`` makes multiple smaller graphs appear as a single large
+    graph, with contiguous indexing for nodes and edges. This allows fast
+    batched computation and takes advantage of default performance
+    optimizations in deep learning frameworks.
     """
 
     def __init__(
@@ -321,8 +326,10 @@ class GraphTuple:
         Args:
             nodes: Tensor-like node feature array with shape ``[sum(n_nodes), d_n]``.
             edges: Tensor-like edge feature array with shape ``[sum(n_edges), d_e]``.
-            senders: Sender node indices for each edge.
-            receivers: Receiver node indices for each edge.
+            senders: Sender node indices for each edge. Indices are unique
+                across graphs in the flattened representation.
+            receivers: Receiver node indices for each edge. Indices are unique
+                across graphs in the flattened representation.
             n_nodes: Per-graph node counts.
             n_edges: Per-graph edge counts.
             global_attr: Optional graph-level features of shape
