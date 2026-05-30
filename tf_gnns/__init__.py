@@ -28,6 +28,7 @@ from .lib.gt_ops import (
     _zero_graph,
     _zero_graph_tf,
 )
+from .models.gcn import SparseGCN, SparseGCNConv
 from .models.graphnet import GraphNetMLP, GraphIndep, GNCellMLP, GraphNetMPNN_MLP
 from .tfgnns_datastructures import (
     Edge,
@@ -64,6 +65,8 @@ __all__ = [
     "GraphIndep",
     "GNCellMLP",
     "GraphNetMPNN_MLP",
+    "SparseGCNConv",
+    "SparseGCN",
     "__version__",
 ]
 
