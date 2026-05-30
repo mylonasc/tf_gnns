@@ -92,6 +92,7 @@ class GNCellMLP(keras.layers.Layer):
         self.is_built = True
 
     def call(self, g_):
+        """Run one GraphNet update step on a tensor dictionary."""
         return self.gn_core.eval_tensor_dict(g_)
 
 
@@ -244,6 +245,7 @@ class GraphNetMLP(keras.layers.Layer):
         return s
 
     def call(self, g_):
+        """Evaluate the full encode-process-decode GraphNet pipeline."""
         g_ = self.g_enc_determ.eval_tensor_dict(g_)
         for _gn in self.g_core_determ:
             go_ = _gn.eval_tensor_dict(g_)
@@ -337,6 +339,7 @@ class GraphIndep(keras.layers.Layer):
         self.is_built = True
 
     def call(self, g_):
+        """Apply graph-independent transforms to nodes/edges/globals."""
         return self.gn_graph_indep.eval_tensor_dict(g_)
 
 
@@ -407,6 +410,7 @@ class GraphNetMPNN_MLP(keras.layers.Layer):
         self.all_weights = []
 
     def build(self, d_shapes):
+        """Build encoder, processor, and decoder GraphNet modules."""
         node_input_size, edge_input_size = d_shapes["nodes"][-1], d_shapes["edges"][-1]
         if self.edge_output_size is None:
             self.edge_output_size = edge_input_size
@@ -487,6 +491,7 @@ class GraphNetMPNN_MLP(keras.layers.Layer):
         return s
 
     def call(self, g_):
+        """Run the MPNN-style no-global encode-process-decode stack."""
         g_ = self.g_enc_determ.eval_tensor_dict(g_)
         for _gn in self.g_core_determ:
             go_ = _gn.eval_tensor_dict(g_)

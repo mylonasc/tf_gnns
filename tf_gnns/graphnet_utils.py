@@ -191,14 +191,11 @@ class GlobalInput(Enum):
 
 
 class GraphNet:
-    """
-    AAA Input is a graph and output is a graph.
-    Encapsulates a GraphNet computation iteration.
+    """One GraphNet computation block.
 
-    Supports model loading and saving (for a single GraphNet)
-
-    Should treat the situations where edge functions do not exist more uniformly.
-    Also there is no Special treatment for "globals".
+    A ``GraphNet`` instance wraps edge, node, and optional global update
+    functions and evaluates them over either object graphs or tensor-dict graph
+    tuples.
     """
 
     def __init__(
@@ -212,36 +209,21 @@ class GraphNet:
         use_global_input=False,
         name=None,
     ):
-        """
-        A GraphNet class.
-        The constructor expects that edge_function, node_function are Keras models with specially
-        named inputs. The input names of these function are scanned during object construction so
-        they are correctly used when the `GraphNet` is evaluated on some `Graph` or `GraphTuple`.
+        """Initialize a GraphNet block.
 
-        Parameters:
-            edge_function             : the edge function (depending on whether the graphnet block
-                                        is graph independent, and whether the source and destinations
-                                        are used, this has different input sizes)
-
-            node_function             : the node function (if this is graph independent it has only
-                                        node inputs)
-
-            edge_aggregation_function : the edge aggregation function used in the non-fully
-                                        batched evaluation modes. ("batched" and "safe"). If it
-                                        contains two aggregation functions, the second one is the
-                                        "unsorted_segment" variant (for faster computation with
-                                        GraphTuples)
-
-                                        NOTE: For simplicity the same aggregator is
-                                        used for the edges-to-nodes aggregation and edges-to-global.
-
-            node_to_global_aggregation_function : the node aggregator. This aggregates all nodes to provide
-                                        an input to the global MLP. Possible values:['mean','max','min', 'sum','mean_max_min']
-
-            use_global_input          : whether to use the global input or not
-
-            name                      : a string used for the name_scopes of the GNN.
-
+        Args:
+            edge_function: Keras model for edge updates.
+            node_function: Keras model for node updates.
+            global_function: Optional Keras model for global updates.
+            edge_aggregation_function: Aggregation used for edge-to-node and
+                edge-to-global reductions in non-segment paths.
+            node_to_global_aggregation_function: Aggregation used for
+                node-to-global reductions.
+            graph_independent: If ``True``, disable message passing and apply
+                independent edge/node/global transforms.
+            use_global_input: Whether global features are provided as model
+                inputs.
+            name: Optional block name.
         """
         self.edge_aggregation_function, self.edge_aggregation_function_seg = [
             None,
@@ -1402,54 +1384,47 @@ def make_mlp_graphnet_functions(
     activate_last_layer=False,
     **kwargs,
 ):
-    """
-    Make the 3 functions that completely define the GraphNet
-    * If `edge_input_size' and `edge_output_size' are not defined (None)
-      It is assumed that all inputs and all outputs are the same shape for nodes and edges.
+    """Build callables required to construct a :class:`GraphNet` block.
 
     Args:
-      units              : a size parameter for the networks created.
-      node_input_size    : shape of the node state of the incoming graph.
-      node_output_size   : shape of the node state of the output graph
-      use_global_to_edge : [False] whether to use a global variable for the created edge MLPs. This changes what
-                           the evaluation functions of the GN expect (now they also expect a global tensor
-                           provided as a separate input). See also ~tf_gnns.GraphNet.graph_tuple_eval
-      use_global_to_node : [False] whether to use a global variable for the created node MLPs.
-                           See also `~tf_gnns.GraphNet.graph_tuple_eval`
-      use_global_input   : whether to use the global field of the input tensor.
+        units: Width specification used when creating edge/node/global MLPs.
+        node_input_size: Input node feature size.
+        node_output_size: Output node feature size.
+        edge_input_size: Optional input edge feature size. Defaults to
+            ``node_input_size``.
+        edge_output_size: Optional output edge feature size. Defaults to
+            ``node_output_size``.
+        create_global_function: If ``True``, create a global update model.
+        global_input_size: Optional input global feature size.
+        global_output_size: Optional output global feature size.
+        use_global_input: If ``True``, consume ``global_attr`` from inputs.
+        use_global_to_edge: If ``True``, include input global state in the edge
+            model inputs.
+        use_global_to_node: If ``True``, include input global state in the node
+            model inputs.
+        node_mlp_use_edge_state_agg_input: If ``True``, node MLP consumes
+            aggregated edge messages.
+        graph_indep: If ``True``, create a graph-independent block (no message
+            passing).
+        message_size: Edge message size, or ``"auto"`` to infer from selected
+            aggregation.
+        aggregation_function: Aggregation mode used for message passing.
+        node_to_global_aggr_fn: Optional override for node-to-global
+            aggregation.
+        edge_to_global_aggr_fn: Optional override for edge-to-global
+            aggregation.
+        activation: Activation used for created MLPs.
+        activate_last_layer: Whether to apply activation on final MLP layer.
+        **kwargs: Forwarded to low-level MLP factory helpers.
 
-      edge_input_size  : (optional) the shape of the edge attributes of the input graph (defaults to node_input_size)
+    Returns:
+        Dictionary of GraphNet constructor keyword arguments, including
+        ``edge_function``, ``node_function``, optional ``global_function``, and
+        aggregation callables.
 
-      edge_output_size : (optional) the shape of the edge attributes of the output graph (defaults to node_output_size)
-
-      create_global_function : whether to make the global part. This is not about globals being used as inputs! This controls if globals are going to appear in outputs.
-                               there can be GN blocks that use the global to control edge and node states but there is no global function.
-      global_input_size   : (optional) the input size for the global network (the GraphTuple evaluated should contain
-                            a .global_attr field for this to have any meaning). Only meaningful when `create_global_function` is `True`.
-
-      global_output_size  : (optional) the output size for the global network. Note that it is possible that there
-                            is no global input in the GraphTuple but the computation still returns a global tensor
-                            in the returned graph tuple (i.e. graph-to-global block). Only meaningful when `create_global_function` is `True`
-
-      graph_indep      : default: False - whether message passing happens in this graphNet (if not it is a "graph-independent" GN)
-
-      message_size     : (optional) the size of the passed message - this can be different from the edge-state output size!
-                         What this affects is what goes into the aggregator and to the node-function. Edge state can still be whatever.
-
-      aggregation_function   : ['mean'] the aggregation function to be used. If the aggregation function is a compound one, it may require
-                       changing the "message_size" (or leave the message size to 'auto' to compute it from this factory function)
-                       If this GraphNet contains also node-to-global and/or edge-to-global functions, this aggregation_function is also used for these.
-
-      node_to_global_aggr_fn : [None] overrides the aggregation function for node-to-global
-      edge_to_global_aggr_fn : [None] overrides the aggregation function for edge-to-global
-
-      activation       : the activation function used for all MLPs
-
-      activate_last_layer : whether to apply an activation to the last layer.
-
-    Outputs:
-      A dictionary containing functions and aggregation functions. This can be passed directly to a `tf_gnn.GraphNet` constructor and yield a `tf_gnn.GraphNet`.
-
+    Raises:
+        ValueError: If global state is requested by edge/node models while
+            ``use_global_input`` is ``False``.
     """
 
     node_to_global_aggr_fn = (
@@ -1637,33 +1612,23 @@ def make_graph_to_graph_and_global_functions(
     aggregation_function="mean",
     **kwargs,
 ):
-    """
-    A wrapper to a more general function factory.
-    The constructed GN has 2-layer MLPs with the specified activation
-    and a "units" parameter (same for all MLPs).
+    """Create a graph-to-graph-plus-global GraphNet function bundle.
 
-    This does not correspond to a standard GNN architecture, it is a "full"
-    GN without a global input (less wasteful than defining a "zero" global input)
+    This wrapper builds a block that does not consume input globals but still
+    produces global outputs by aggregating node and edge states.
 
-    Usage:
+    Args:
+        units: Width specification used for constructed MLPs.
+        node_or_core_input_size: Input node feature size.
+        global_output_size: Output global feature size.
+        node_or_core_output_size: Optional output node feature size.
+        edge_output_size: Optional output edge feature size.
+        edge_input_size: Optional input edge feature size.
+        aggregation_function: Aggregation mode used in message passing.
+        **kwargs: Forwarded to :func:`make_mlp_graphnet_functions`.
 
-    >  units = 32
-    >  input_state_size = 16
-    >  output_state_size = 8
-    >  gn_ = GraphNet(**make_global_to_graph_and_global_functions(units, input_state_size, output_state_size) #<< this returns a GN ready for application.
-
-    The constructed block does not use the "global" input of the input
-    GraphTuple but returns a GraphTuple that contains a global variable
-    which is also processed by an internal MLP.
-    Parameters:
-
-      units              : how wide are the networks going to be (by default all networks are 2-layer relu networks).
-      node_input_size    : the feature dim. of the input graph nodes (or default size for all - except global)
-      node_output_size   : the output size of the nodes (used also for edges if un-speciffied)
-      global_output_size : the output size of the global variable (in the GraphTuple.global_attr field after computation)
-
-      for the rest of the keyword arguments see `tf_gnns.graphnet_utils.make_mlp_graphnet_functions`
-
+    Returns:
+        Dictionary of constructor arguments for :class:`GraphNet`.
     """
     if node_or_core_output_size is None:
         node_or_core_output_size = global_output_size
@@ -1713,24 +1678,25 @@ def make_graph_indep_graphnet_functions(
     use_global_input=True,
     **kwargs,
 ):
-    """
-    A wrapper that creates the functions that are needed for a graph-independent GN block.
-    Takes care of some flags that control a more general factory method for avoiding clutter.
-    Usage:
-      gn_core = GraphNet(**make_graph_indep_graphnet_functions(15, 20))
+    """Create GraphNet callables for a graph-independent block.
 
-    * If only "node_or_core_input_size" is defined, the rest of the inputs are assumed the same.
-    * If only "node_or_core_input_size" and "node_output_size" are defined,  then all corresponding input and output sizes are
-      the same.
+    Args:
+        units: Width specification used for created MLPs.
+        node_or_core_input_size: Input node feature size.
+        node_or_core_output_size: Optional output node feature size.
+        edge_input_size: Optional input edge feature size.
+        edge_output_size: Optional output edge feature size.
+        global_input_size: Optional input global feature size.
+        global_output_size: Optional output global feature size.
+        aggregation_function: Aggregation mode (retained for interface
+            consistency).
+        create_global_function: If ``True``, create global output function.
+        use_global_input: If ``True``, consume global input state.
+        **kwargs: Forwarded to :func:`make_mlp_graphnet_functions`.
 
-    Parameters:
-      units: the width of the created MLPs
-      node_or_core_input_size : the input shape of the node MLP (or the input size of global and edge MLPs if no other input is defined).
-      node_or_core_output_size        : the output shape of the node MLP (or the output sizes of global and edge MLPs if no other inputs are defined).
-      edge_input_size         : [None] the edge state input size
-      edge_output_size        : [None] the edge state output size
-      global_input_size       : [None] ...
-      global_output_size      : [None] ...
+    Returns:
+        Dictionary of constructor arguments for :class:`GraphNet` configured in
+        graph-independent mode.
     """
 
     if node_or_core_output_size is None:
@@ -1789,28 +1755,20 @@ def make_mpnn_graphnet_noglobal_functions(
     aggregation_function="mean",
     **kwargs,
 ):
-    """
-    A wrapper that creates the functions that are needed for a GN block that does not accept or return any global variables.
-    This is useful when only node or edge classification is of interest, and we don't have any 'global' info.
+    """Create GraphNet callables for MPNN-style blocks without globals.
 
-    Besides saving some memory and compute, the Graph Neural Network that is constructed with this function
-    requires less information for the input tensors (i.e., there is no `n_edges` field required in the graph dictionary input
-    and no indexing for edge-to-global and node-to-global (`global_reps_for_nodes`, `global_reps_for_edges` fields)).
+    Args:
+        units: Width specification used for created MLPs.
+        node_or_core_input_size: Input node feature size.
+        node_or_core_output_size: Optional output node feature size.
+        edge_input_size: Optional input edge feature size.
+        edge_output_size: Optional output edge feature size.
+        aggregation_function: Aggregation mode used for edge-to-node updates.
+        **kwargs: Forwarded to :func:`make_mlp_graphnet_functions`.
 
-    Takes care of some flags that control a more general factory method for avoiding clutter.
-    Usage:
-      gn_core = GraphNet(**make_full_graphnet_functions(15, 20))
-
-    * If only "node_or_core_input_size" is defined, the rest of the inputs are assumed the same.
-    * If only "node_or_core_input_size" and "node_output_size" are defined,  then all corresponding input and output sizes are
-      the same.
-
-    Parameters:
-      units: the width of the created MLPs
-      node_or_core_input_size : the input shape of the node MLP (or the input size of global and edge MLPs if no other input is defined).
-      node_or_core_output_size        : the output shape of the node MLP (or the output sizes of global and edge MLPs if no other inputs are defined).
-      edge_input_size         : [None] the edge state input size
-      edge_output_size        : [None] the edge state output size
+    Returns:
+        Dictionary of constructor arguments for :class:`GraphNet` with no
+        global input/output functions.
     """
 
     if node_or_core_output_size is None:
@@ -1867,24 +1825,22 @@ def make_full_graphnet_functions(
     aggregation_function="mean",
     **kwargs,
 ):
-    """
-    A wrapper that creates the functions that are needed for a full GN block.
-    Takes care of some flags that control a more general factory method for avoiding clutter.
-    Usage:
-      gn_core = GraphNet(**make_full_graphnet_functions(15, 20))
+    """Create GraphNet callables for a full message-passing block.
 
-    * If only "node_or_core_input_size" is defined, the rest of the inputs are assumed the same.
-    * If only "node_or_core_input_size" and "node_output_size" are defined,  then all corresponding input and output sizes are
-      the same.
+    Args:
+        units: Width specification used for created MLPs.
+        node_or_core_input_size: Input node feature size.
+        node_or_core_output_size: Optional output node feature size.
+        edge_input_size: Optional input edge feature size.
+        edge_output_size: Optional output edge feature size.
+        global_input_size: Optional input global feature size.
+        global_output_size: Optional output global feature size.
+        aggregation_function: Aggregation mode for message passing.
+        **kwargs: Forwarded to :func:`make_mlp_graphnet_functions`.
 
-    Parameters:
-      units: the width of the created MLPs
-      node_or_core_input_size : the input shape of the node MLP (or the input size of global and edge MLPs if no other input is defined).
-      node_or_core_output_size        : the output shape of the node MLP (or the output sizes of global and edge MLPs if no other inputs are defined).
-      edge_input_size         : [None] the edge state input size
-      edge_output_size        : [None] the edge state output size
-      global_input_size       : [None] ...
-      global_output_size      : [None] ...
+    Returns:
+        Dictionary of constructor arguments for :class:`GraphNet` configured
+        with edge, node, and global update functions.
     """
 
     if node_or_core_output_size is None:

@@ -1,4 +1,8 @@
-"""Classes for basic manipulation of GraphNet"""
+"""Data structures for representing graphs and graph batches.
+
+This module provides object-based graph classes (`Node`, `Edge`, `Graph`) and a
+flat batched container (`GraphTuple`) used by high-level GraphNet APIs.
+"""
 
 import numpy as np
 
@@ -25,6 +29,13 @@ def _copy_any_ds(val):
 
 
 class Node:
+    """Graph node with a feature tensor.
+
+    Args:
+        node_attr_tensor: Tensor-like node attributes with at least rank 2.
+            The first dimension is usually batch-like in object graph mode.
+    """
+
     def __init__(self, node_attr_tensor):
         if len(node_attr_tensor.shape) < 2:
             raise ValueError(
@@ -52,6 +63,14 @@ class Node:
 
 
 class Edge:
+    """Directed edge connecting two :class:`Node` objects.
+
+    Args:
+        edge_attr_tensor: Tensor-like edge attributes.
+        node_from: Source node.
+        node_to: Destination node.
+    """
+
     def __init__(self, edge_attr_tensor, node_from, node_to):
         self.edge_tensor = edge_attr_tensor
         self.node_from = node_from
@@ -78,10 +97,16 @@ class Edge:
 
 
 class Graph:
+    """Object graph made of node and edge instances.
+
+    Args:
+        nodes: List of :class:`Node` instances.
+        edges: List of :class:`Edge` instances.
+        global_attr: Optional graph-level attributes.
+        NO_VALIDATION: If ``False``, run connectivity validation checks.
+    """
+
     def __init__(self, nodes, edges, global_attr=None, NO_VALIDATION=True):
-        """
-        Creates a graph from a set of edges and nodes
-        """
         self.nodes = nodes
         self.edges = edges
         self.global_attr = global_attr
@@ -156,17 +181,17 @@ class Graph:
         return Graph(nodes_coppied, coppied_edge_instances)
 
     def get_subgraph_from_nodes(self, nodes, edge_trimming_mode="+from+to"):
-        """
-        Node should belong to graph. Creates a new graph with coppied edge and
-        node properties, defined from a sub-graph of the original graph.
-        parameters:
-          self (type = Graph): the graph we want a sub-graph from
-          nodes: the nodes of the graph we want the subgraph of.
-          mode:  "+from+to" - keep an edge if there is a "from" node or a "to" node at that edge (and the corresponding node)
-                 "-from-to" - keep an edge if there is NOT a "from" node and NOT a "to" node at that edge (and the corresponding node)
-                 "+from"    - keep an edge only if it has a "from" node that coincides with any of the nodes in the list (not implemented)
-                 "+to"      - keep an edge only if it has a "to" node that coincides with any of the nodes in the list (not implemented)
-                 "-from"    - keep an edge only if it DOESN't have a "from" node that concides with any of the nodes in the list (not implemented)
+        """Create a subgraph by filtering nodes and incident edges.
+
+        Args:
+            nodes: Node subset to keep.
+            edge_trimming_mode: Edge filter mode. Supported values are
+                ``"+from+to"`` (keep edges where both endpoints are in
+                ``nodes``) and ``"-from+to"`` (keep edges where both endpoints
+                are not in ``nodes``).
+
+        Returns:
+            A new :class:`Graph` with copied nodes and matching copied edges.
         """
 
         def check_edge_trimming_condition(e_):
@@ -209,13 +234,19 @@ class Graph:
 
 
 def make_graph_tuple_from_graph_list(list_of_graphs):
-    """
-    Takes in a list of graphs (with consistent sizes - not checked)
-    and creates a graph tuple (input tensors + some book keeping)
+    """Create a :class:`GraphTuple` from a list of object graphs.
 
-    Because there is some initial functionality I don't want to throw away currently, that implements special treatment for nodes and edges
-    coming from graphs with the same topology, it is currently required that the first dimension of nodes and edges
-    for the list of graphs that are entered in this function is always 1 (this dimension is the batch dimension in the previous implementation.)
+    Args:
+        list_of_graphs: List of :class:`Graph` objects with consistent feature
+            dimensionality.
+
+    Returns:
+        A :class:`GraphTuple` with flattened node/edge tensors and bookkeeping
+        vectors (`senders`, `receivers`, `n_nodes`, `n_edges`).
+
+    Notes:
+        This helper currently expects node and edge attributes in each input
+        graph to have first dimension equal to ``1``.
     """
 
     # check the first dimension is 1 - instruct to split graphs if not.
@@ -266,6 +297,12 @@ def make_graph_tuple_from_graph_list(list_of_graphs):
 
 
 class GraphTuple:
+    """Batched graph representation used by GraphNet tensor-dict paths.
+
+    A ``GraphTuple`` stores all node and edge features in contiguous tensors and
+    keeps graph boundaries via `n_nodes` and `n_edges` vectors.
+    """
+
     def __init__(
         self,
         nodes,
@@ -279,20 +316,22 @@ class GraphTuple:
         global_reps_for_edges=None,
         n_graphs=None,
     ):
-        """
-        A graph tuple contains multiple graphs for faster batched computation.
+        """Initialize a graph batch.
 
-        parameters:
-            nodes      : a `tf.Tensor` containing all the node attributes
-            edges      : a `tf.Tensor` containing all the edge attributes
-            senders    : a list of sender node indices defining the graph connectivity. The indices are unique accross graphs
-            receivers  : a list of receiver node indices defining the graph connectivity. The indices are unique accross graphs
-            n_nodes    : a list, a numpy array or a tf.Tensor containing how many nodes are in each graph represented by the nodes and edges in the object
-            n_edges    : a list,a numpy array or a tf.Tensor containing how many edges are in each graph represented by the nodes and edges in the object
-            global_attr: (optional) a `tf.Tensor` or a `np.array` containing global attributes (first size - self.n_graphs)
-            global_reps_for_edges : (optional) used for the aggregation of the global var.
-            global_reps_for_nodes : (optional) used for the aggregation of the global var.
-            n_graphs   : (optional)
+        Args:
+            nodes: Tensor-like node feature array with shape ``[sum(n_nodes), d_n]``.
+            edges: Tensor-like edge feature array with shape ``[sum(n_edges), d_e]``.
+            senders: Sender node indices for each edge.
+            receivers: Receiver node indices for each edge.
+            n_nodes: Per-graph node counts.
+            n_edges: Per-graph edge counts.
+            global_attr: Optional graph-level features of shape
+                ``[n_graphs, d_g]``.
+            global_reps_for_nodes: Optional precomputed mapping from node rows
+                to graph ids.
+            global_reps_for_edges: Optional precomputed mapping from edge rows
+                to graph ids.
+            n_graphs: Optional number of graphs.
         """
         # Sort edges according to receivers and sort receivers:
         assert len(n_nodes) == len(n_edges)
@@ -332,11 +371,7 @@ class GraphTuple:
         self.n_graphs = len(self.n_nodes)
 
     def update_reps_for_globals(self):
-        """
-        Some flat vectors for segment sums when dealing with global variables.
-        This is created even when there are no globals (one just needs the node
-        and edge counts for each graph.)
-        """
+        """Build helper vectors mapping nodes/edges to graph indices."""
         global_reps_for_edges = []  # <- used to cast the global tensor to a compatible size for the edges.
         for k, e in enumerate(self.n_edges):
             global_reps_for_edges.extend([k] * int(e))
@@ -349,6 +384,12 @@ class GraphTuple:
         self._global_reps_for_nodes = global_reps_for_nodes
 
     def assign_global(self, global_attr, check_shape=False):
+        """Assign graph-level features.
+
+        Args:
+            global_attr: Tensor-like global features.
+            check_shape: If ``True``, assert first dimension equals ``n_graphs``.
+        """
         self.has_global = True
         if check_shape:
             assert int(backend_ops.first_dim(global_attr)) == self.n_graphs
@@ -425,9 +466,13 @@ class GraphTuple:
         return gt
 
     def get_graph(self, graph_index):
-        """
-        Returns a new graph with the same properties as the original  graph.
-        gradients are not traced through this operation.
+        """Extract a single :class:`Graph` from this batch.
+
+        Args:
+            graph_index: Zero-based index of the graph to extract.
+
+        Returns:
+            A new :class:`Graph` object containing copied node/edge features.
         """
         assert graph_index >= 0
         if graph_index > self.n_graphs:
@@ -465,13 +510,18 @@ class GraphTuple:
         return Graph(nodes, edges, global_attr=global_attr)
 
     def to_tensor_dict(self):
+        """Convert this graph batch to a GraphNet tensor dictionary."""
         return _graphtuple_to_tensor_dict(self)
 
 
 def _graphtuple_to_tensor_dict(gt_):
-    """
-    Transform a GT to a dictionary.
-    Used for employing the traceable graph_dict evaluation function.
+    """Convert a :class:`GraphTuple` into the tensor-dict graph format.
+
+    Args:
+        gt_: Input graph tuple.
+
+    Returns:
+        Dictionary with keys expected by high-level GraphNet layers.
     """
 
     def _tf_constant_or_none(v):

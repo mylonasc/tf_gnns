@@ -2,7 +2,7 @@
 ## TensorFlow compatibility and test status
 
 [![Tests](https://github.com/mylonasc/tf_gnns/actions/workflows/tests.yml/badge.svg?branch=main)](https://github.com/mylonasc/tf_gnns/actions/workflows/tests.yml)
-[![Coverage](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/mylonasc/tf_gnns/main/doc/shields/coverage.json)](https://github.com/mylonasc/tf_gnns/blob/main/doc/shields/coverage.json)
+[![Coverage](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/mylonasc/tf_gnns/main/docs/shields/coverage.json)](https://github.com/mylonasc/tf_gnns/blob/main/docs/shields/coverage.json)
 
 | TensorFlow | TensorFlow Probability | Status |
 |-----|-----|-----|
@@ -15,7 +15,7 @@
 The matrix above is validated by `scripts/run_tf_matrix_tests.sh` and in CI (`.github/workflows/tests.yml`).
 
 # `tf_gnns` - A Hackable GraphNets library
-![alt-img](https://raw.githubusercontent.com/mylonasc/tf_gnns/main/doc/figures/tfgnns_logo2.png)
+![alt-img](https://raw.githubusercontent.com/mylonasc/tf_gnns/main/docs/figures/tfgnns_logo2.png)
 A library for easy construction of message-passing networks in TensorFlow Keras.
 It is largely inspired by this [DeepMind paper](https://arxiv.org/abs/1806.01261) and the corresponding open-source library ([original graph_nets library](https://github.com/deepmind/graph_nets)).
 

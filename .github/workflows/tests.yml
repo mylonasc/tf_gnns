@@ -76,6 +76,25 @@ jobs:
       - name: Run non-blocking docstring lint
         run: scripts/run_docstring_lint.sh
 
+  docs-build:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Run non-blocking docs build
+        run: scripts/run_docs_build.sh
+
   test-tf217:
     runs-on: ubuntu-latest
 
