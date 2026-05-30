@@ -45,6 +45,12 @@ docs = [
   "myst-nb>=1.1",
   "sphinx-rtd-theme>=2.0",
 ]
+bench = [
+  "ogb>=1.3.6",
+  "torch>=2.3",
+  "torch-geometric>=2.5",
+  "pandas>=2.2",
+]
 
 [tool.pytest.ini_options]
 python_files = ["test.py", "test_*.py", "*_test.py"]

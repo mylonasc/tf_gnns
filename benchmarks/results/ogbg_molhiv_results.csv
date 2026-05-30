@@ -1,0 +1,6 @@
+dataset,steps,warmup,hidden_dim,max_graphs,sample_mode,avg_step_ms,std_step_ms,steps_per_sec,framework,mode,device
+ogbg-molhiv,10000,100,128,8,single,0.7440029935870319,0.09968728784831027,1344.080613410895,tf_gnns,tf_function,gpu
+ogbg-molhiv,10000,100,128,8,single,1.274209861588478,0.07573948381197022,784.8000789707924,pyg,torch_eager,cuda
+ogbg-molhiv,10000,100,128,8,single,1.5816869820013642,0.10032377388266477,632.2363472541608,pyg,torch_compile,cuda
+ogbg-molhiv,10000,100,128,8,single,2.70992838408947,0.1324778216033783,369.0134417836277,dgl,torch_eager_cpu_dgl_cpu_build,cpu
+ogbg-molhiv,10000,100,128,8,single,5.2820288607727734,0.1758365585854848,189.32119198108614,dgl,torch_compile_cpu_dgl_cpu_build,cpu
