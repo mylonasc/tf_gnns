@@ -5,6 +5,12 @@ from tf_gnns.models.gcn import SparseGCN, SparseGCNConv
 from tf_gnns.tfgnns_datastructures import GraphTuple
 
 
+def _to_numpy(x):
+    if hasattr(x, "detach"):
+        x = x.detach()
+    return tf.keras.ops.convert_to_numpy(x)
+
+
 def _make_td(edge_weights=None):
     nodes = tf.constant([[1.0, 2.0], [0.5, -1.0], [3.0, 1.0]], dtype=tf.float32)
     edges = tf.zeros((3, 1), dtype=tf.float32)
@@ -58,8 +64,8 @@ def test_sparse_gcn_conv_segment_fallback_matches_spmm_close():
     _ = seg_layer(td)
     seg_layer.set_weights(spmm_layer.get_weights())
 
-    out_spmm = spmm_layer(td)["nodes"].numpy()
-    out_seg = seg_layer(td)["nodes"].numpy()
+    out_spmm = _to_numpy(spmm_layer(td)["nodes"])
+    out_seg = _to_numpy(seg_layer(td)["nodes"])
     np.testing.assert_allclose(out_spmm, out_seg, rtol=1e-5, atol=1e-5)
 
 
