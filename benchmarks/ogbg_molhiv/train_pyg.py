@@ -72,7 +72,16 @@ def benchmark_pyg(
         step_times.append(t1 - t0)
 
     metrics = summarize_times(step_times)
-    metrics.update({"framework": "pyg", "mode": "torch_eager", "device": device.type})
+    metrics.update(
+        {
+            "framework": "pyg",
+            "mode": "torch_eager",
+            "device": device.type,
+            "feature_dtype": str(pyg_samples[0].x.dtype),
+            "index_dtype": str(pyg_samples[0].edge_index.dtype),
+            "param_dtype": str(next(model.parameters()).dtype),
+        }
+    )
     return metrics
 
 
@@ -130,6 +139,13 @@ def benchmark_pyg_compile(
 
     metrics = summarize_times(step_times)
     metrics.update(
-        {"framework": "pyg", "mode": "torch_compile", "device": device.type}
+        {
+            "framework": "pyg",
+            "mode": "torch_compile",
+            "device": device.type,
+            "feature_dtype": str(pyg_samples[0].x.dtype),
+            "index_dtype": str(pyg_samples[0].edge_index.dtype),
+            "param_dtype": str(next(model.parameters()).dtype),
+        }
     )
     return metrics

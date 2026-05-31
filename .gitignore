@@ -41,3 +41,27 @@ RELEASE_INSTRUCTIONS.md
 .DS_Store
 .idea/
 .vscode/
+
+# Local datasets and generated artifacts
+dataset/ogbg_code2/raw/
+dataset/ogbg_code2/split/
+dataset/ogbg_code2/processed/
+dataset/ogbg_code2/mapping/*.csv.gz
+dataset/ogbg_code2/mapping/*.json.gz
+dataset/ogbg_code2/mapping/README.md
+dataset/ogbg_code2/RELEASE_v1.txt
+dataset/ogbg_molhiv/raw/
+dataset/ogbg_molhiv/split/
+dataset/ogbg_molhiv/processed/
+dataset/ogbg_molhiv/mapping/*.csv.gz
+dataset/ogbg_molhiv/mapping/README.md
+dataset/ogbg_molhiv/RELEASE_v1.txt
+
+# Docs / notebook generated data
+docs/_build/
+notebooks/processed/
+notebooks/raw/*.npy
+notebooks/raw/*.json
+
+# Benchmark outputs
+benchmarks/results/*.csv

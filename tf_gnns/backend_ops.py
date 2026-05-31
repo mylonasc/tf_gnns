@@ -13,7 +13,6 @@ This module should stay intentionally small and declarative.
 """
 
 import keras
-import tensorflow as tf
 import warnings
 
 
@@ -156,6 +155,8 @@ def segment_min(values, indices, num_groups):
     if has_native_segment_min():
         return keras.ops.segment_min(values, indices, num_groups)
     if active_backend() == "tensorflow":
+        import tensorflow as tf
+
         return tf.math.unsorted_segment_min(values, indices, num_groups)
     _warn_segment_min_emulation()
     return -segment_max(-values, indices, num_groups)

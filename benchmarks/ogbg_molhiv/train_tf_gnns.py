@@ -38,13 +38,13 @@ def benchmark_tf_gnns(
     layer_jit_compile: bool = False,
     train_step_jit_compile: bool = False,
     sample_mode: str = "single",
+    use_tf_function: bool = False,
 ):
     model = TfGNNsGCN(hidden_dim=hidden_dim, layer_jit_compile=layer_jit_compile)
     opt = keras.optimizers.Adam(learning_rate=lr)
     loss_fn = keras.losses.BinaryCrossentropy(from_logits=True)
 
-    @tf.function(jit_compile=train_step_jit_compile, reduce_retracing=True)
-    def train_step(td):
+    def _train_step_impl(td):
         y = tf.reshape(td["labels"], (1, 1))
         with tf.GradientTape() as tape:
             logits = model(td, training=True)
@@ -52,6 +52,15 @@ def benchmark_tf_gnns(
         grads = tape.gradient(loss, model.trainable_variables)
         opt.apply_gradients(zip(grads, model.trainable_variables))
         return loss
+
+    if use_tf_function:
+        train_step = tf.function(
+            _train_step_impl,
+            jit_compile=train_step_jit_compile,
+            reduce_retracing=True,
+        )
+    else:
+        train_step = _train_step_impl
 
     n = len(tf_samples)
 
@@ -71,8 +80,10 @@ def benchmark_tf_gnns(
         step_times.append(t1 - t0)
 
     metrics = summarize_times(step_times)
-    mode = "tf_function"
-    if train_step_jit_compile:
+    mode = "tf_eager"
+    if use_tf_function:
+        mode = "tf_function"
+    if use_tf_function and train_step_jit_compile:
         mode = "tf_function_jit"
     if layer_jit_compile:
         mode = mode + "+layer_jit"

@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import argparse
+import json
 from pathlib import Path
 import re
+import subprocess
 import urllib.request
 
 from benchmarks.ogbg_molhiv.common import BenchConfig, set_all_seeds
@@ -33,6 +35,20 @@ def parse_args():
         default="single",
         help="single=reuse one graph to avoid retracing/recompiles; cycle=iterate over sampled graphs",
     )
+    p.add_argument(
+        "--tfgnns-backends",
+        type=str,
+        default="tensorflow,torch,jax",
+        help="Comma-separated Keras backends for tf_gnns benchmark",
+    )
+    p.add_argument(
+        "--tfgnns-modes",
+        type=str,
+        default="eager,compiled",
+        help="Comma-separated tf_gnns benchmark modes: eager,compiled",
+    )
+    p.add_argument("--feature-dtype", type=str, default="float32")
+    p.add_argument("--index-dtype", type=str, default="auto")
     p.add_argument(
         "--output",
         type=str,
@@ -135,16 +151,76 @@ def main():
     validate_framework_sample_alignment(tf_samples, pyg_samples, dgl_samples)
 
     results = []
-    results.append(
-        benchmark_tf_gnns(
-            tf_samples,
-            hidden_dim=cfg.hidden_dim,
-            lr=cfg.learning_rate,
-            warmup_steps=cfg.warmup_steps,
-            bench_steps=cfg.bench_steps,
-            sample_mode=args.sample_mode,
-        )
-    )
+    tfgnns_backends = [b.strip() for b in args.tfgnns_backends.split(",") if b.strip()]
+    tfgnns_modes = [m.strip() for m in args.tfgnns_modes.split(",") if m.strip()]
+
+    for backend_name in tfgnns_backends:
+        for mode in tfgnns_modes:
+            if backend_name == "tensorflow":
+                use_tf_function = mode == "compiled"
+                try:
+                    result = benchmark_tf_gnns(
+                        tf_samples,
+                        hidden_dim=cfg.hidden_dim,
+                        lr=cfg.learning_rate,
+                        warmup_steps=cfg.warmup_steps,
+                        bench_steps=cfg.bench_steps,
+                        sample_mode=args.sample_mode,
+                        use_tf_function=use_tf_function,
+                        train_step_jit_compile=False,
+                    )
+                    result["backend"] = "tensorflow"
+                    result["mode"] = "keras_compiled" if use_tf_function else "keras_eager"
+                    result["feature_dtype"] = str(tf_samples[0]["nodes"].dtype)
+                    result["index_dtype"] = str(tf_samples[0]["senders"].dtype)
+                    result["param_dtype"] = str(result.get("param_dtype", "float32"))
+                    results.append(result)
+                except Exception as exc:
+                    print(f"[tf_gnns] backend=tensorflow mode={mode} skipped: {exc}")
+                continue
+
+            cmd = [
+                "uv",
+                "run",
+                "python",
+                "benchmarks/ogbg_molhiv/run_tfgnns_backend.py",
+                "--backend",
+                backend_name,
+                "--mode",
+                mode,
+                "--dataset-root",
+                args.dataset_root,
+                "--steps",
+                str(cfg.bench_steps),
+                "--warmup",
+                str(cfg.warmup_steps),
+                "--hidden-dim",
+                str(cfg.hidden_dim),
+                "--max-graphs",
+                str(args.max_graphs),
+                "--seed",
+                str(cfg.seed),
+                "--sample-mode",
+                args.sample_mode,
+                "--feature-dtype",
+                args.feature_dtype,
+                "--index-dtype",
+                args.index_dtype,
+            ]
+            proc = subprocess.run(cmd, capture_output=True, text=True)
+            if proc.returncode != 0:
+                print(
+                    f"[tf_gnns] backend={backend_name} mode={mode} skipped:\n"
+                    f"{proc.stderr.strip() or proc.stdout.strip()}"
+                )
+                continue
+            try:
+                result_line = proc.stdout.strip().splitlines()[-1]
+                results.append(json.loads(result_line))
+            except Exception as exc:
+                print(
+                    f"[tf_gnns] backend={backend_name} mode={mode} parse failed: {exc}"
+                )
     results.append(
         benchmark_pyg(
             pyg_samples,
@@ -152,6 +228,7 @@ def main():
             lr=cfg.learning_rate,
             warmup_steps=cfg.warmup_steps,
             bench_steps=cfg.bench_steps,
+            sample_mode=args.sample_mode,
         )
     )
     try:

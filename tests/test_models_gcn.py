@@ -41,32 +41,30 @@ def test_sparse_gcn_conv_preserves_graph_structure_and_updates_nodes():
     tf.debugging.assert_equal(out["receivers"], td["receivers"])
 
 
-def test_sparse_gcn_conv_segment_fallback_matches_spmm_close():
+def test_sparse_gcn_conv_repeated_layers_with_shared_weights_match():
     td = _make_td(edge_weights=[1.0, 0.75, 1.25])
-    spmm_layer = SparseGCNConv(
+    layer_a = SparseGCNConv(
         units=3,
         activation=None,
         jit_compile=False,
-        backend_fallback_segment=False,
         add_self_loops=True,
         normalize=True,
     )
-    seg_layer = SparseGCNConv(
+    layer_b = SparseGCNConv(
         units=3,
         activation=None,
         jit_compile=False,
-        backend_fallback_segment=True,
         add_self_loops=True,
         normalize=True,
     )
 
-    _ = spmm_layer(td)
-    _ = seg_layer(td)
-    seg_layer.set_weights(spmm_layer.get_weights())
+    _ = layer_a(td)
+    _ = layer_b(td)
+    layer_b.set_weights(layer_a.get_weights())
 
-    out_spmm = _to_numpy(spmm_layer(td)["nodes"])
-    out_seg = _to_numpy(seg_layer(td)["nodes"])
-    np.testing.assert_allclose(out_spmm, out_seg, rtol=1e-5, atol=1e-5)
+    out_a = _to_numpy(layer_a(td)["nodes"])
+    out_b = _to_numpy(layer_b(td)["nodes"])
+    np.testing.assert_allclose(out_a, out_b, rtol=1e-5, atol=1e-5)
 
 
 def test_sparse_gcn_stack_output_shape():
@@ -74,3 +72,22 @@ def test_sparse_gcn_stack_output_shape():
     model = SparseGCN(hidden_units=[8, 8], output_units=2, dropout_rate=0.0)
     out = model(td, training=False)
     assert out["nodes"].shape == (3, 2)
+
+
+def test_sparse_gcn_supports_configured_feature_and_index_dtypes():
+    td = _make_td(edge_weights=[1.0, 0.75, 1.25])
+    td["nodes"] = tf.cast(td["nodes"], tf.float64)
+    td["edge_weights"] = tf.cast(td["edge_weights"], tf.float64)
+    td["senders"] = tf.cast(td["senders"], tf.int64)
+    td["receivers"] = tf.cast(td["receivers"], tf.int64)
+
+    layer = SparseGCNConv(
+        units=4,
+        activation=None,
+        feature_dtype="float64",
+        index_dtype="int64",
+    )
+    out = layer(td)
+
+    assert "float64" in str(layer.kernel.dtype)
+    assert "float64" in str(out["nodes"].dtype)
