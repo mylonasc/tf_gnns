@@ -79,7 +79,7 @@ print(float(keras.ops.convert_to_numpy(loss)))
 
 @pytest.mark.skipif(not _module_available("jax"), reason="JAX is not installed")
 @pytest.mark.parametrize("with_global", ["0", "1"])
-def test_jax_compiled_graphnet_mpnn_train_on_batch_fails_during_symbolic_build(with_global):
+def test_jax_compiled_graphnet_mpnn_train_on_batch_succeeds(with_global):
     code = r'''
 import os
 import keras
@@ -147,10 +147,7 @@ model.train_on_batch(td, y)
         text=True,
         timeout=120,
     )
-    assert proc.returncode != 0
-    combined = f"{proc.stderr}\n{proc.stdout}"
-    assert "Unable to automatically build the model" in combined
-    assert "_error_repr" in combined
+    assert proc.returncode == 0, proc.stderr or proc.stdout
 
 
 @pytest.mark.skipif(not _module_available("jax"), reason="JAX is not installed")
@@ -216,7 +213,7 @@ model.train_on_batch(td, y)
 
 
 @pytest.mark.skipif(not _module_available("jax"), reason="JAX is not installed")
-def test_jax_jitted_stateless_mpnn_step_fails_inside_graphnet_mpnn_call():
+def test_jax_jitted_stateless_mpnn_step_succeeds():
     code = r'''
 import keras
 import jax
@@ -289,9 +286,7 @@ if not (loss_val == loss_val):
 print(loss_val)
 '''
     proc = _run(code)
-    assert proc.returncode != 0
-    combined = f"{proc.stderr}\n{proc.stdout}"
-    assert "_error_repr" in combined
+    assert proc.returncode == 0, proc.stderr or proc.stdout
 
 
 @pytest.mark.skipif(not _module_available("jax"), reason="JAX is not installed")
@@ -353,10 +348,11 @@ runpy.run_path("benchmarks/ogbg_molhiv_mpnn/run_tfgnns_backend.py", run_name="__
         assert parsed["backend"] == "jax"
         assert parsed["mode"] == "keras_eager"
     else:
-        assert proc.returncode != 0
-        combined = f"{proc.stderr}\n{proc.stdout}"
-        assert "_error_repr" in combined
-        assert "self.mpnn(td)" in combined or "GraphNetMPNN_MLP" in combined
+        assert proc.returncode == 0, proc.stderr or proc.stdout
+        payload = proc.stdout.strip().splitlines()[-1]
+        parsed = __import__("json").loads(payload)
+        assert parsed["backend"] == "jax"
+        assert parsed["mode"] == "keras_compiled"
 
 
 @pytest.mark.skipif(not _module_available("jax"), reason="JAX is not installed")
@@ -400,7 +396,7 @@ jax.eval_shape(lambda x: gn.eval_tensor_dict(x), td)
 
 
 @pytest.mark.skipif(not _module_available("jax"), reason="JAX is not installed")
-def test_jax_eval_shape_graphnet_mpnn_layer_fails_with_error_repr_signature():
+def test_jax_eval_shape_graphnet_mpnn_layer_succeeds():
     code = (
         r'''import keras
 import jax
@@ -414,6 +410,4 @@ jax.eval_shape(mpnn, td)
 '''
     )
     proc = _run(code)
-    assert proc.returncode != 0
-    combined = f"{proc.stderr}\n{proc.stdout}"
-    assert "_error_repr" in combined
+    assert proc.returncode == 0, proc.stderr or proc.stdout

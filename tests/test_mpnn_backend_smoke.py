@@ -16,8 +16,8 @@ def _module_available(name):
     [
         ("tensorflow", "eager", True),
         ("tensorflow", "compiled", True),
-        ("jax", "eager", False),
-        ("jax", "compiled", False),
+        ("jax", "eager", True),
+        ("jax", "compiled", True),
     ],
 )
 def test_graphnet_mpnn_train_step_smoke_across_backends(backend, mode, train_step):
@@ -103,8 +103,7 @@ print(json.dumps({"backend": os.environ["BACKEND"], "mode": os.environ["MODE"], 
     assert isinstance(payload["loss"], float)
 
 
-@pytest.mark.xfail(reason="Keras JAX train_on_batch path not stable for GraphNetMPNN yet")
-def test_graphnet_mpnn_jax_train_step_known_failure_contract():
+def test_graphnet_mpnn_jax_train_step_train_on_batch_succeeds():
     if not _module_available("jax"):
         pytest.skip("JAX is not installed in this environment")
 

@@ -143,10 +143,9 @@ def segment_max_or_zero(values, indices, num_groups):
 def segment_mean(values, indices, num_groups):
     indices = _as_int_tensor(indices)
     sums = segment_sum(values, indices, num_groups)
-    counts = keras.ops.bincount(indices, minlength=num_groups)
-    counts = keras.ops.cast(counts, sums.dtype)
+    one_col = keras.ops.ones((keras.ops.shape(indices)[0], 1), dtype=sums.dtype)
+    counts = segment_sum(one_col, indices, num_groups)
     counts = keras.ops.maximum(counts, keras.ops.ones_like(counts))
-    counts = keras.ops.expand_dims(counts, axis=-1)
     return sums / counts
 
 
