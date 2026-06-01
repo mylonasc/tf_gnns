@@ -65,3 +65,7 @@ notebooks/raw/*.json
 
 # Benchmark outputs
 benchmarks/results/*.csv
+notebooks/data
+notebooks/dataset
+dataset
+benchmarks/results/
