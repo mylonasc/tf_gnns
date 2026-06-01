@@ -34,7 +34,7 @@ try:
     import tensorflow_probability as tfp
 
     tfd = tfp.distributions
-except ImportError:
+except ImportError:  # pragma: no cover
     print(
         "Info: Tensorflow probability (tfp) is not available. Some functionality depending on legacy tfp will not be directly available."
     )
@@ -113,7 +113,7 @@ try:
         ACCORDION_CSS = f.read()
     with open(os.path.join(html_asset_path, "accordion.js")) as f:
         ACCORDION_JS = f.read()
-except (OSError, KeyError):
+except (OSError, KeyError):  # pragma: no cover
     print(
         "Some assets failed to load!\nSome pretty printing functionality may be unavailable."
     )

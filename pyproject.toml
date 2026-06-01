@@ -37,8 +37,11 @@ managed = true
 
 [dependency-groups]
 dev = [
+  "jax>=0.4.30",
+  "jaxlib>=0.4.30",
   "pytest>=8.0",
   "pytest-cov>=5.0",
+  "torch>=2.8.0",
 ]
 docs = [
   "sphinx>=7.4",
