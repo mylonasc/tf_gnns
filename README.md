@@ -10,7 +10,9 @@ The `tf_gnns` library has no external dependencies except Keras 3 and a deep lea
 ### Initial motivation
 This library was initially implemented for GraphNet-style MPNNs and all the other related architectures that can be seen as special cases of Graphnets. 
 
-It has slighly different design constraints from the original DeepMind `graph_nets`, since it is taking advantage of Keras facilities to build complex models easily and without large drops in performance.
+The `tf_gnns` computations are structured to make them amenable to backend graph compilers such as XLA for TensorFlow/JAX, and `torch.compile` where applicable.
+
+> Note that torch paths are at the moment less performant than torch geometric for eager computation mode. 
 
 `tf_gnns` is built to support arbitrary node/edge/global attributes and update functions. 
 
