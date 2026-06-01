@@ -94,6 +94,17 @@ def test_graphnet_mpnn_respects_explicit_output_feature_sizes():
     assert out["edges"].shape == (td["edges"].shape[0], 4)
 
 
+def test_graphnet_mpnn_ignores_non_graph_keys_in_tensor_dict():
+    td = _make_td(with_global=False)
+    td["labels"] = tf.constant([1.0], dtype=tf.float32)
+    td["metadata"] = tf.constant([123], dtype=tf.int32)
+    model = GraphNetMPNN_MLP(units=8, core_steps=1, recurrent=False, residual=True)
+    out = model(td)
+
+    assert out["nodes"].shape[0] == td["nodes"].shape[0]
+    assert out["edges"].shape[0] == td["edges"].shape[0]
+
+
 def test_graphindep_builds_and_runs_with_and_without_global():
     td_with_global = _make_td(with_global=True)
     td_no_global = _make_td(with_global=False)

@@ -795,7 +795,19 @@ class GraphNet:
           'edges','nodes','senders','receivers','n_edges','n_nodes','global_attr','global_reps_for_edges','global_reps_for_nodes'
 
         """
-        d_ = d.copy()
+        expected_keys = {
+            "edges",
+            "nodes",
+            "senders",
+            "receivers",
+            "n_edges",
+            "n_nodes",
+            "global_attr",
+            "global_reps_for_edges",
+            "global_reps_for_nodes",
+            "n_graphs",
+        }
+        d_ = {k: v for k, v in d.items() if k in expected_keys}
         for k, v in d_.items():
             if v is None:
                 continue

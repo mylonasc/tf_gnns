@@ -1,0 +1,11 @@
+dataset,steps,warmup,hidden_dim,max_graphs,sample_mode,avg_step_ms,std_step_ms,steps_per_sec,framework,mode,device,backend,feature_dtype,index_dtype,param_dtype,requested_index_dtype
+ogbg-molhiv,1000,10,128,8,single,15.717660160005092,0.6897283388784177,63.62270145938032,tf_gnns,keras_eager,gpu,tensorflow,<dtype: 'float32'>,<dtype: 'int32'>,float32,
+ogbg-molhiv,1000,10,128,8,single,0.7521429300159216,0.11131525802185126,1329.5345340530312,tf_gnns,keras_compiled,gpu,tensorflow,<dtype: 'float32'>,<dtype: 'int32'>,float32,
+ogbg-molhiv,1000,10,128,8,single,3.3000247819535433,0.0668288202084045,303.02802738591,tf_gnns,keras_eager,cuda,torch,torch.float32,torch.int64,float32,auto
+ogbg-molhiv,1000,10,128,8,single,6.957062404019758,0.18957058424606052,143.73882853518816,tf_gnns,keras_compiled,cuda,torch,torch.float32,torch.int64,float32,auto
+ogbg-molhiv,1000,10,128,8,single,24.38434213901311,1.637497603592631,41.009923265474335,tf_gnns,keras_eager,gpu,jax,float32,int32,float32,auto
+ogbg-molhiv,1000,10,128,8,single,0.4782660309839994,0.018907957159480522,2090.8865259415747,tf_gnns,keras_compiled,gpu,jax,float32,int32,float32,auto
+ogbg-molhiv,1000,10,128,8,single,1.2094911099616439,0.057585035168993486,826.7940059780287,pyg,torch_eager,cuda,,torch.float32,torch.int64,torch.float32,
+ogbg-molhiv,1000,10,128,8,single,1.5364337749499828,0.07177926190747266,650.8578607838493,pyg,torch_compile,cuda,,torch.float32,torch.int64,torch.float32,
+ogbg-molhiv,1000,10,128,8,single,1.0461789850220085,0.04837320848416792,955.8593838309255,dgl,torch_eager_cpu_dgl_cpu_build,cpu,,torch.float32,torch.int64,torch.float32,
+ogbg-molhiv,1000,10,128,8,single,2.3598232630603015,0.0916541211797987,423.76054836545893,dgl,torch_compile_cpu_dgl_cpu_build,cpu,,torch.float32,torch.int64,torch.float32,

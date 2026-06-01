@@ -13,7 +13,6 @@ This module should stay intentionally small and declarative.
 """
 
 import keras
-import tensorflow as tf
 import warnings
 
 
@@ -144,10 +143,9 @@ def segment_max_or_zero(values, indices, num_groups):
 def segment_mean(values, indices, num_groups):
     indices = _as_int_tensor(indices)
     sums = segment_sum(values, indices, num_groups)
-    counts = keras.ops.bincount(indices, minlength=num_groups)
-    counts = keras.ops.cast(counts, sums.dtype)
+    one_col = keras.ops.ones((keras.ops.shape(indices)[0], 1), dtype=sums.dtype)
+    counts = segment_sum(one_col, indices, num_groups)
     counts = keras.ops.maximum(counts, keras.ops.ones_like(counts))
-    counts = keras.ops.expand_dims(counts, axis=-1)
     return sums / counts
 
 
@@ -156,6 +154,8 @@ def segment_min(values, indices, num_groups):
     if has_native_segment_min():
         return keras.ops.segment_min(values, indices, num_groups)
     if active_backend() == "tensorflow":
+        import tensorflow as tf
+
         return tf.math.unsorted_segment_min(values, indices, num_groups)
     _warn_segment_min_emulation()
     return -segment_max(-values, indices, num_groups)

@@ -1,0 +1,30 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Runs a command with LD_LIBRARY_PATH set to include pip-installed NVIDIA libs,
+# so TensorFlow can dlopen CUDA/cuDNN shared libraries.
+
+if [ "$#" -eq 0 ]; then
+  echo "Usage: scripts/run_with_tf_gpu <command> [args...]"
+  echo "Example: scripts/run_with_tf_gpu uv run python -c \"import tensorflow as tf; print(tf.config.list_physical_devices('GPU'))\""
+  exit 2
+fi
+
+NVIDIA_LIB_PATHS="$(uv run python - <<'PY'
+import glob
+import os
+import site
+
+base = site.getsitepackages()[0]
+paths = sorted(glob.glob(os.path.join(base, 'nvidia', '*', 'lib')))
+print(':'.join(paths))
+PY
+)"
+
+if [ -z "${NVIDIA_LIB_PATHS}" ]; then
+  echo "No pip NVIDIA library paths found under site-packages/nvidia/*/lib"
+  exit 1
+fi
+
+export LD_LIBRARY_PATH="${NVIDIA_LIB_PATHS}:${LD_LIBRARY_PATH:-}"
+exec "$@"

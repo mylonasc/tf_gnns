@@ -250,7 +250,10 @@ class GraphNetMLP(keras.layers.Layer):
         for _gn in self.g_core_determ:
             go_ = _gn.eval_tensor_dict(g_)
             if self.is_residual:
-                g_ = _assign_add_tensor_dict(g_, go_)
+                g_next = dict(g_)
+                g_next["nodes"] = g_["nodes"] + go_["nodes"]
+                g_next["edges"] = g_["edges"] + go_["edges"]
+                g_ = g_next
             else:
                 g_ = go_
         g_ = self.g_dec_determ.eval_tensor_dict(g_)
@@ -496,8 +499,10 @@ class GraphNetMPNN_MLP(keras.layers.Layer):
         for _gn in self.g_core_determ:
             go_ = _gn.eval_tensor_dict(g_)
             if self.is_residual:
-                g_["nodes"] = g_["nodes"] + go_["nodes"]
-                g_["edges"] = g_["edges"] + go_["edges"]
+                g_next = dict(g_)
+                g_next["nodes"] = g_["nodes"] + go_["nodes"]
+                g_next["edges"] = g_["edges"] + go_["edges"]
+                g_ = g_next
             else:
                 g_ = go_
         g_ = self.g_dec_determ.eval_tensor_dict(g_)
