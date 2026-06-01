@@ -34,17 +34,27 @@ def parse_args():
     p.add_argument("--feature-dtype", type=str, default="float32")
     p.add_argument("--index-dtype", type=str, default="auto")
     p.add_argument("--output", type=str, default="benchmarks/results/ogbg_molhiv_mpnn_results.csv")
+    p.add_argument(
+        "--include-dgl",
+        action="store_true",
+        help="Include DGL benchmark runs (disabled by default).",
+    )
     return p.parse_args()
 
 
 def main():
     args = parse_args()
-    _dgl_compatibility_warning()
+    if args.include_dgl:
+        _dgl_compatibility_warning()
 
     import pandas as pd
 
-    from benchmarks.ogbg_molhiv_mpnn.train_dgl import benchmark_dgl, benchmark_dgl_compile
     from benchmarks.ogbg_molhiv_mpnn.train_pyg import benchmark_pyg, benchmark_pyg_compile
+
+    benchmark_dgl = None
+    benchmark_dgl_compile = None
+    if args.include_dgl:
+        from benchmarks.ogbg_molhiv_mpnn.train_dgl import benchmark_dgl, benchmark_dgl_compile
 
     cfg = BenchConfig(
         batch_size=args.batch_size,
@@ -59,7 +69,11 @@ def main():
     dataset, splits = load_ogbg_molhiv(root=args.dataset_root)
     validate_dataset_indexed_graphs(dataset, splits.train_idx)
     tf_samples, pyg_samples, dgl_samples = make_framework_samples(
-        dataset, splits.train_idx, max_graphs=args.max_graphs, include_tf=False
+        dataset,
+        splits.train_idx,
+        max_graphs=args.max_graphs,
+        include_tf=False,
+        include_dgl=args.include_dgl,
     )
     validate_framework_sample_alignment(tf_samples, pyg_samples, dgl_samples)
 
@@ -146,14 +160,17 @@ def main():
     except Exception as exc:
         print(f"[pyg] compile benchmark skipped: {exc}")
 
-    print("\n" + "=" * 72)
-    print("[suite] running DGL benchmarks")
-    print("=" * 72)
-    results.append(benchmark_dgl(dgl_samples, cfg.hidden_dim, cfg.learning_rate, cfg.warmup_steps, cfg.bench_steps, args.sample_mode))
-    try:
-        results.append(benchmark_dgl_compile(dgl_samples, cfg.hidden_dim, cfg.learning_rate, cfg.warmup_steps, cfg.bench_steps, args.sample_mode))
-    except Exception as exc:
-        print(f"[dgl] compile benchmark skipped: {exc}")
+    if args.include_dgl:
+        print("\n" + "=" * 72)
+        print("[suite] running DGL benchmarks")
+        print("=" * 72)
+        results.append(benchmark_dgl(dgl_samples, cfg.hidden_dim, cfg.learning_rate, cfg.warmup_steps, cfg.bench_steps, args.sample_mode))
+        try:
+            results.append(benchmark_dgl_compile(dgl_samples, cfg.hidden_dim, cfg.learning_rate, cfg.warmup_steps, cfg.bench_steps, args.sample_mode))
+        except Exception as exc:
+            print(f"[dgl] compile benchmark skipped: {exc}")
+    else:
+        print("[suite] DGL benchmarks disabled by default. Use --include-dgl to enable.")
 
     df = pd.DataFrame(results)
     df.insert(0, "dataset", "ogbg-molhiv")

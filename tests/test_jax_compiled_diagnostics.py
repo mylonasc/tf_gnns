@@ -274,8 +274,10 @@ def _step(tv, ntv, ov, td, y):
         loss = loss_fn(y, logits)
         return loss, new_ntv
 
-    (loss, new_ntv), grads = jax.value_and_grad(_loss_and_aux, has_aux=True)(tv, ntv)
-    new_ov, new_tv = opt.stateless_apply(ov, grads, tv)
+    (loss, new_ntv), grads = jax.value_and_grad(
+        _loss_and_aux, has_aux=True, allow_int=True
+    )(tv, ntv)
+    new_tv, new_ov = opt.stateless_apply(ov, grads, tv)
     return loss, new_tv, new_ntv, new_ov
 
 jitted_step = jax.jit(_step)

@@ -55,12 +55,19 @@ def validate_dataset_indexed_graphs(dataset, indices: np.ndarray, max_graphs: in
             raise ValueError("label is missing")
 
 
-def make_framework_samples(dataset, indices: np.ndarray, max_graphs: int = 32):
+def make_framework_samples(
+    dataset,
+    indices: np.ndarray,
+    max_graphs: int = 32,
+    include_dgl: bool = True,
+):
     """Create aligned per-framework sample objects for one batch-like slice."""
     import tensorflow as tf
     import torch
-    import dgl
     from torch_geometric.data import Data
+    dgl = None
+    if include_dgl:
+        import dgl  # type: ignore[no-redef]
 
     selected = indices[: max_graphs]
     tf_samples = []
@@ -102,23 +109,33 @@ def make_framework_samples(dataset, indices: np.ndarray, max_graphs: int = 32):
             )
         )
 
-        dg = dgl.graph((senders, receivers), num_nodes=n_nodes)
-        dg.ndata["x"] = torch.tensor(node_feat, dtype=torch.float32)
-        dg.ndata["batch"] = torch.zeros((n_nodes,), dtype=torch.long)
-        dg.y = torch.tensor(y_val, dtype=torch.float32)
-        dgl_samples.append(dg)
+        if include_dgl:
+            dg = dgl.graph((senders, receivers), num_nodes=n_nodes)
+            dg.ndata["x"] = torch.tensor(node_feat, dtype=torch.float32)
+            dg.ndata["batch"] = torch.zeros((n_nodes,), dtype=torch.long)
+            dg.y = torch.tensor(y_val, dtype=torch.float32)
+            dgl_samples.append(dg)
 
     return tf_samples, pyg_samples, dgl_samples
 
 
 def validate_framework_sample_alignment(tf_samples, pyg_samples, dgl_samples) -> None:
-    if not (len(tf_samples) == len(pyg_samples) == len(dgl_samples)):
-        raise ValueError("Sample count mismatch across frameworks")
+    if dgl_samples:
+        if not (len(tf_samples) == len(pyg_samples) == len(dgl_samples)):
+            raise ValueError("Sample count mismatch across frameworks")
+    elif len(tf_samples) != len(pyg_samples):
+        raise ValueError("Sample count mismatch between tf_gnns and PyG")
 
-    for td, pyg, dg in zip(tf_samples, pyg_samples, dgl_samples):
+    for idx, (td, pyg) in enumerate(zip(tf_samples, pyg_samples)):
         tf_nodes = int(td["nodes"].shape[0])
         tf_edges = int(td["senders"].shape[0])
-        if tf_nodes != int(pyg.x.shape[0]) or tf_nodes != int(dg.num_nodes()):
-            raise ValueError("Node-count mismatch across framework samples")
-        if tf_edges != int(pyg.edge_index.shape[1]) or tf_edges != int(dg.num_edges()):
-            raise ValueError("Edge-count mismatch across framework samples")
+        if tf_nodes != int(pyg.x.shape[0]):
+            raise ValueError("Node-count mismatch between tf_gnns and PyG samples")
+        if tf_edges != int(pyg.edge_index.shape[1]):
+            raise ValueError("Edge-count mismatch between tf_gnns and PyG samples")
+        if dgl_samples:
+            dg = dgl_samples[idx]
+            if tf_nodes != int(dg.num_nodes()):
+                raise ValueError("Node-count mismatch across framework samples")
+            if tf_edges != int(dg.num_edges()):
+                raise ValueError("Edge-count mismatch across framework samples")

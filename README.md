@@ -158,6 +158,17 @@ The notebook can be run end-to-end in Google Colab, and out of the box it gives 
 This example demonstrates using the higher-level GraphNet constructs with Keras 3 configured for the PyTorch backend.
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/mylonasc/tf_gnns/blob/main/notebooks/04_keras3_torch_backend_graphnet.ipynb)
 
+## GCN models
+`tf_gnns` includes sparse GCN implementations for node-classification workloads:
+
+- `SparseGCNConv`: low-level sparse graph convolution layer.
+- `SparseGCN`: stacked sparse GCN model.
+- `GCNv2`: tunedGNN-style high-level GCN stack with residual paths, normalization, and configurable dropout.
+
+See the OGBN-Arxiv examples:
+
+- `notebooks/06_gcn_ogbn_arxiv_tfgnns.ipynb` (tf_gnns GCN training workflow, including tunedGNN-style configuration)
+
 ## Performance
 From initial tests, the performance of `tf_gnns` seems to be at least as good as `deepmind/graph_nets` when using tensor dictionaries.
 

@@ -216,10 +216,12 @@ def main():
                 loss = loss_fn(y, logits)
                 return loss, new_ntv
 
-            (loss, new_ntv), grads = jax.value_and_grad(_loss_and_state, has_aux=True)(
+            (loss, new_ntv), grads = jax.value_and_grad(
+                _loss_and_state, has_aux=True, allow_int=True
+            )(
                 trainable_vars, non_trainable_vars
             )
-            new_ov, new_tv = optimizer.stateless_apply(optimizer_vars, grads, trainable_vars)
+            new_tv, new_ov = optimizer.stateless_apply(optimizer_vars, grads, trainable_vars)
             return loss, new_tv, new_ntv, new_ov
 
         jax_step = jax.jit(_jax_step) if args.mode == "compiled" else _jax_step

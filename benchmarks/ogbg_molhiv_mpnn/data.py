@@ -29,11 +29,19 @@ def validate_dataset_indexed_graphs(dataset, indices: np.ndarray, max_graphs: in
             raise ValueError("label is missing")
 
 
-def make_framework_samples(dataset, indices: np.ndarray, max_graphs: int = 32, include_tf: bool = True):
+def make_framework_samples(
+    dataset,
+    indices: np.ndarray,
+    max_graphs: int = 32,
+    include_tf: bool = True,
+    include_dgl: bool = True,
+):
     """Create aligned per-framework sample objects with edge features."""
-    import dgl
     import torch
     from torch_geometric.data import Data
+    dgl = None
+    if include_dgl:
+        import dgl  # type: ignore[no-redef]
     tf = None
     if include_tf:
         import tensorflow as tf  # type: ignore[no-redef]
@@ -79,38 +87,50 @@ def make_framework_samples(dataset, indices: np.ndarray, max_graphs: int = 32, i
             )
         )
 
-        dg = dgl.graph((senders, receivers), num_nodes=n_nodes)
-        dg.ndata["x"] = torch.tensor(node_feat, dtype=torch.float32)
-        dg.edata["edge_attr"] = torch.tensor(edge_feat, dtype=torch.float32)
-        dg.ndata["batch"] = torch.zeros((n_nodes,), dtype=torch.long)
-        dg.y = torch.tensor(y_val, dtype=torch.float32)
-        dgl_samples.append(dg)
+        if include_dgl:
+            dg = dgl.graph((senders, receivers), num_nodes=n_nodes)
+            dg.ndata["x"] = torch.tensor(node_feat, dtype=torch.float32)
+            dg.edata["edge_attr"] = torch.tensor(edge_feat, dtype=torch.float32)
+            dg.ndata["batch"] = torch.zeros((n_nodes,), dtype=torch.long)
+            dg.y = torch.tensor(y_val, dtype=torch.float32)
+            dgl_samples.append(dg)
 
     return tf_samples, pyg_samples, dgl_samples
 
 
 def validate_framework_sample_alignment(tf_samples, pyg_samples, dgl_samples) -> None:
     if tf_samples:
-        if not (len(tf_samples) == len(pyg_samples) == len(dgl_samples)):
-            raise ValueError("Sample count mismatch across frameworks")
-    elif len(pyg_samples) != len(dgl_samples):
+        if dgl_samples:
+            if not (len(tf_samples) == len(pyg_samples) == len(dgl_samples)):
+                raise ValueError("Sample count mismatch across frameworks")
+        elif len(tf_samples) != len(pyg_samples):
+            raise ValueError("Sample count mismatch between tf_gnns and PyG")
+    elif dgl_samples and len(pyg_samples) != len(dgl_samples):
         raise ValueError("Sample count mismatch between PyG and DGL")
 
-    if not tf_samples:
+    if not tf_samples and dgl_samples:
         for pyg, dg in zip(pyg_samples, dgl_samples):
             if int(pyg.x.shape[0]) != int(dg.num_nodes()):
                 raise ValueError("Node-count mismatch between PyG and DGL")
             if int(pyg.edge_index.shape[1]) != int(dg.num_edges()):
                 raise ValueError("Edge-count mismatch between PyG and DGL")
         return
+    if not tf_samples:
+        return
 
-    for (td, _), pyg, dg in zip(tf_samples, pyg_samples, dgl_samples):
+    for idx, ((td, _), pyg) in enumerate(zip(tf_samples, pyg_samples)):
         tf_nodes = int(td["nodes"].shape[0])
         tf_edges = int(td["senders"].shape[0])
-        if tf_nodes != int(pyg.x.shape[0]) or tf_nodes != int(dg.num_nodes()):
-            raise ValueError("Node-count mismatch across framework samples")
-        if tf_edges != int(pyg.edge_index.shape[1]) or tf_edges != int(dg.num_edges()):
-            raise ValueError("Edge-count mismatch across framework samples")
+        if tf_nodes != int(pyg.x.shape[0]):
+            raise ValueError("Node-count mismatch between tf_gnns and PyG")
+        if tf_edges != int(pyg.edge_index.shape[1]):
+            raise ValueError("Edge-count mismatch between tf_gnns and PyG")
+        if dgl_samples:
+            dg = dgl_samples[idx]
+            if tf_nodes != int(dg.num_nodes()):
+                raise ValueError("Node-count mismatch across framework samples")
+            if tf_edges != int(dg.num_edges()):
+                raise ValueError("Edge-count mismatch across framework samples")
         if int(td["edges"].shape[0]) != int(pyg.edge_attr.shape[0]):
             raise ValueError("Edge-feature count mismatch between tf_gnns and PyG")
 

@@ -69,3 +69,5 @@ Results are written to `benchmarks/results/ogbg_molhiv_mpnn_results.csv`.
 - The `GraphNetMPNN_MLP` path accepts `tensorflow,torch,jax` backend selections.
 - If a backend/mode pair fails at runtime, the suite logs the subprocess error
   and continues with other frameworks.
+- DGL benchmarks are disabled by default in both suites. Pass `--include-dgl`
+  to enable DGL runs.
