@@ -1,4 +1,5 @@
 import numpy as np
+import pytest
 import tensorflow as tf
 
 from tf_gnns import Edge, Graph, Node, make_graph_tuple_from_graph_list
@@ -70,3 +71,33 @@ def test_graph_tuple_global_reps_and_tensor_dict_invariants():
     assert int(tf.shape(td["nodes"])[0]) == int(np.sum(gt.n_nodes))
     assert int(tf.shape(td["edges"])[0]) == int(np.sum(gt.n_edges))
     assert int(tf.shape(td["global_attr"])[0]) == gt.n_graphs
+
+
+def test_node_rejects_rank1_tensor():
+    with pytest.raises(ValueError):
+        Node(tf.constant([1.0, 2.0], dtype=tf.float32))
+
+
+def test_graph_get_subgraph_and_connectivity_compare():
+    g = _make_graph()
+    sg = g.get_subgraph_from_nodes([g.nodes[0], g.nodes[1]], edge_trimming_mode="+from+to")
+    assert len(sg.nodes) == 2
+    assert len(sg.edges) == 1
+    assert g.compare_connectivity(g.copy()) is True
+
+
+def test_graph_tuple_assign_global_shape_check():
+    gt = make_graph_tuple_from_graph_list([_make_graph(), _make_graph(10.0, 10.0)])
+    with pytest.raises(AssertionError):
+        gt.assign_global(tf.constant([[1.0]], dtype=tf.float32), check_shape=True)
+
+
+def test_graph_tuple_add_and_copy_and_get_graph_bounds():
+    gt = make_graph_tuple_from_graph_list([_make_graph(), _make_graph(10.0, 20.0)])
+    gt.assign_global(tf.constant([[1.0], [2.0]], dtype=tf.float32))
+    gt2 = gt.copy()
+    summed = gt + gt2
+    np.testing.assert_allclose(tf.keras.ops.convert_to_numpy(summed.nodes), 2.0 * tf.keras.ops.convert_to_numpy(gt.nodes))
+    np.testing.assert_allclose(tf.keras.ops.convert_to_numpy(summed.edges), 2.0 * tf.keras.ops.convert_to_numpy(gt.edges))
+    with pytest.raises(ValueError):
+        gt.get_graph(gt.n_graphs + 1)

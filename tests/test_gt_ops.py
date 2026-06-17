@@ -5,6 +5,7 @@ from tf_gnns.lib.gt_ops import (
     _add_gt,
     _assign_add_tensor_dict,
     _concat_tensordicts,
+    _slice_conc_tensordict,
     _zero_graph,
     _zero_graph_tf,
 )
@@ -122,3 +123,34 @@ def test_zero_graph_explicit_state_size_and_tf_variant_parity():
     tf.debugging.assert_equal(out_static["nodes"], out_trace["nodes"])
     tf.debugging.assert_equal(out_static["edges"], out_trace["edges"])
     tf.debugging.assert_equal(out_static["global_attr"], out_trace["global_attr"])
+
+
+def test_zero_graph_tf_default_state_size():
+    g = _make_td(with_global=True)
+
+    out = _zero_graph_tf(g)
+
+    assert out["nodes"].shape == g["nodes"].shape
+    assert out["edges"].shape == g["edges"].shape
+    assert out["global_attr"].shape == g["global_attr"].shape
+    np.testing.assert_allclose(out["nodes"].numpy(), 0.0)
+    np.testing.assert_allclose(out["edges"].numpy(), 0.0)
+    np.testing.assert_allclose(out["global_attr"].numpy(), 0.0)
+
+
+def test_slice_conc_tensordict_splits_feature_fields():
+    td = _make_td(with_global=True)
+    td["nodes"] = tf.constant([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]], dtype=tf.float32)
+    td["edges"] = tf.constant(
+        [[1.0, 2.0, 3.0], [4.0, 5.0, 6.0], [7.0, 8.0, 9.0]], dtype=tf.float32
+    )
+    td["global_attr"] = tf.constant([[1.0, 2.0, 3.0]], dtype=tf.float32)
+
+    first, second = _slice_conc_tensordict(td, [1, 2], [2, 1], [1, 2])
+
+    tf.debugging.assert_equal(first["nodes"], td["nodes"][:, :1])
+    tf.debugging.assert_equal(second["nodes"], td["nodes"][:, 1:3])
+    tf.debugging.assert_equal(first["edges"], td["edges"][:, :2])
+    tf.debugging.assert_equal(second["edges"], td["edges"][:, 2:3])
+    tf.debugging.assert_equal(first["global_attr"], td["global_attr"][:, :1])
+    tf.debugging.assert_equal(second["global_attr"], td["global_attr"][:, 1:3])
