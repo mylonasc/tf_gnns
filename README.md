@@ -3,9 +3,13 @@
 A library for easy construction of message-passing networks in Keras 3.
 
 It is largely inspired by this [DeepMind paper](https://arxiv.org/abs/1806.01261) and the corresponding open-source library ([original graph_nets library](https://github.com/deepmind/graph_nets)).
-In addition it contains baseline tested implementations for GCNs. 
+In addition it contains baseline tested implementations for GCNs.
 
-The `tf_gnns` library has no external dependencies except Keras 3 and a deep learning backend (tf, torch, and jax supported and tested). 
+The `tf_gnns` library is backend-agnostic through Keras 3. TensorFlow,
+PyTorch, and JAX backends are tested in CI for core tensor operations and
+high-level MPNN/GCN smoke tests. The TensorFlow compatibility matrix currently
+covers TensorFlow 2.17 through 2.21, and the Torch backend smoke matrix covers
+Torch 2.10, 2.11, and 2.12 CPU wheels.
 
 ### Initial motivation
 This library was initially implemented for GraphNet-style MPNNs and all the other related architectures that can be seen as special cases of Graphnets. 
@@ -102,22 +106,29 @@ def train_step(graph_tensor_dict):
 
 This keeps library internals backend-agnostic while still allowing TensorFlow users to optimize execution.
 
-### Torch backend note
+### Backend support note
 
-For Keras 3 + Torch backend with Triton enabled, this repository is currently tested with:
+`tf_gnns` targets Keras 3 backend portability. The main CI matrix validates:
 
-- `torch==2.11.0`
-- `triton==3.6.0` (installed as a dependency of torch 2.11.0)
+- TensorFlow backend across TensorFlow 2.17, 2.18, 2.19, 2.20, and 2.21.
+- Torch backend smoke tests across Torch 2.10, 2.11, and 2.12 CPU wheels.
+- JAX execution through backend-agnostic smoke tests when JAX is available.
 
-Recommended setup:
+For Torch, the CI job installs the selected CPU Torch wheel last and runs with
+`uv run --no-sync` so the version under test is not replaced by uv's lockfile
+sync. GPU-enabled Torch/Triton stacks can be more fragile because Keras, Torch,
+TensorFlow, and JAX may pull different CUDA dependency versions.
+
+Recommended Torch CPU smoke setup:
 
 ```bash
-pip install "torch==2.11.0"
-KERAS_BACKEND=torch pytest -q tests
+pip install --index-url https://download.pytorch.org/whl/cpu "torch==2.12.0"
+KERAS_BACKEND=torch pytest -q tests/test_torch_backend_runtime.py tests/test_notebook_torch_backend_flow.py
 ```
 
-If you are using a different Torch/Triton combo and hit import-time crashes in
-`triton` / `torch._dynamo`, pinning to the combination above is the first step.
+If you are using a GPU Torch/Triton combo and hit import-time crashes in
+`triton` / `torch._dynamo`, first reproduce with CPU wheels or isolate the
+backend in a clean environment.
 
 Build the Docker test image for a specific TensorFlow version:
 ```
