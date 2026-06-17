@@ -33,6 +33,10 @@ jobs:
   keras-torch-backend-smoke:
     runs-on: ubuntu-latest
     continue-on-error: true
+    strategy:
+      fail-fast: false
+      matrix:
+        torch-version: ["2.10.0", "2.11.0", "2.12.0"]
 
     steps:
       - name: Check out repository
@@ -49,13 +53,23 @@ jobs:
       - name: Create virtual environment
         run: uv venv
 
-      - name: Install tested Torch + Triton stack
-        run: uv pip install --python .venv/bin/python torch==2.11.0
+      - name: Install project test dependencies
+        run: uv pip install --python .venv/bin/python -e . pytest pytest-cov
 
-      - name: Run backend smoke tests (Keras Torch backend)
+      - name: Install Torch ${{ matrix.torch-version }} CPU wheel
+        run: >-
+          uv pip install --python .venv/bin/python
+          --index-url https://download.pytorch.org/whl/cpu
+          "torch==${{ matrix.torch-version }}"
+
+      - name: Run backend smoke tests (Keras Torch backend, Torch ${{ matrix.torch-version }})
         env:
           KERAS_BACKEND: torch
-        run: uv run pytest -q tests
+        run: >-
+          uv run --no-sync pytest -q
+          tests/test_backend_ops.py
+          tests/test_torch_backend_runtime.py
+          tests/test_notebook_torch_backend_flow.py
 
   lint-docstrings:
     runs-on: ubuntu-latest
