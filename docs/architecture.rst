@@ -12,11 +12,15 @@ documentation, examples, tests, and benchmark adapters so the separation between
 model APIs, GraphNet construction, graph representations, and backend tensor
 operations is explicit.
 
-.. graphviz:: figures/architecture.dot
-   :caption: ``tf_gnns`` module architecture and data-flow boundaries.
+.. figure:: figures/architecture.svg
+   :alt: tf_gnns module architecture and data-flow boundaries.
+   :align: center
 
-The rendered PDF version is available at ``docs/figures/architecture.pdf`` for
-offline review.
+   ``tf_gnns`` module architecture and data-flow boundaries.
+
+The diagram source is available as :download:`architecture.dot
+<figures/architecture.dot>`. A rendered :download:`PDF version
+<figures/architecture.pdf>` is also available for offline review.
 
 Core Design
 -----------
