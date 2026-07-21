@@ -1,0 +1,144 @@
+digraph tf_gnns_architecture {
+  graph [
+    rankdir=TB,
+    bgcolor="white",
+    pad="0.35",
+    nodesep="0.55",
+    ranksep="0.7",
+    splines=spline,
+    fontname="Helvetica",
+    label="tf_gnns idealized runtime architecture",
+    labelloc=t,
+    fontsize=22
+  ];
+
+  node [
+    shape=box,
+    style="rounded,filled",
+    fontname="Helvetica",
+    fontsize=11,
+    margin="0.12,0.08",
+    color="#435266",
+    penwidth=1.2,
+    fillcolor="#f7f9fb"
+  ];
+
+  edge [
+    fontname="Helvetica",
+    fontsize=9,
+    color="#566579",
+    arrowsize=0.75,
+    penwidth=1.1
+  ];
+
+  subgraph cluster_layer_1 {
+    label="Layer 1: User-facing model APIs";
+    color="#c8d8f0";
+    style="rounded,filled";
+    fillcolor="#f4f8ff";
+
+    graphnet_keras_layers [
+      label="models.graphnet\nGraphNetMLP, GraphNetMPNN_MLP, GNCellMLP, GraphIndep\nRole: Keras layers for GraphNet/MPNN architectures\nFit: compose encoder, processor, decoder GraphNet blocks",
+      fillcolor="#dceaff"
+    ];
+
+    gcn_keras_layers [
+      label="models.gcn\nSparseGCNConv, SparseGCN, GCNv2\nRole: Keras layers for sparse GCN architectures\nFit: direct sparse convolution over the shared graph tensor dict",
+      fillcolor="#dceaff"
+    ];
+  }
+
+  subgraph cluster_layer_2 {
+    label="Layer 2: GNN block construction and message-passing semantics";
+    color="#b9dec9";
+    style="rounded,filled";
+    fillcolor="#f2fbf6";
+
+    graphnet_block [
+      label="graphnet_utils.GraphNet\nMethods: eval_tensor_dict(), edge_block(), node_block(), global_block()\nRole: one GraphNet computation block\nFit: edge update -> aggregate messages -> node update -> optional global update",
+      fillcolor="#def4e7"
+    ];
+
+    graphnet_factories [
+      label="graphnet_utils function factories\nmake_mlp_graphnet_functions(), make_full_graphnet_functions(),\nmake_mpnn_graphnet_noglobal_functions(), make_graph_indep_graphnet_functions()\nRole: create Keras edge/node/global update MLPs and aggregators\nFit: declarative construction of GraphNet blocks",
+      fillcolor="#def4e7"
+    ];
+
+    update_functions [
+      label="Update functions\nmake_edge_mlp(), make_node_mlp(), make_global_mlp()\nRole: learnable transformations for edge, node, and global states\nFit: Keras Models called by GraphNet edge/node/global blocks",
+      fillcolor="#def4e7"
+    ];
+
+    aggregation_functions [
+      label="Aggregation functions\n_aggregation_function_factory(), make_keras_simple_agg()\nRole: reduce messages with mean/sum/max/min or compound reducers\nFit: segment reductions used for edge->node and node/edge->global flow",
+      fillcolor="#def4e7"
+    ];
+  }
+
+  subgraph cluster_layer_3 {
+    label="Layer 3: Graph representation and structural tensor operations";
+    color="#f0d092";
+    style="rounded,filled";
+    fillcolor="#fff8ed";
+
+    object_graph [
+      label="tfgnns_datastructures.Node / Edge / Graph\nRole: object graph for construction, copying, subgraphs, connectivity\nFit: ergonomic representation before flattening",
+      fillcolor="#fff0cf"
+    ];
+
+    graph_tuple [
+      label="tfgnns_datastructures.GraphTuple\nMethods: to_tensor_dict(), get_graph(), assign_global(), update_reps_for_globals()\nRole: flattened batched graph container\nFit: bridges object graphs and tensor-dict computation",
+      fillcolor="#fff0cf"
+    ];
+
+    tensor_dict_schema [
+      label="Graph tensor-dict schema\nKeys: nodes, edges, senders, receivers, n_nodes, n_edges,\nglobal_attr, global_reps_for_nodes, global_reps_for_edges, n_graphs\nRole: canonical runtime input/output shape\nFit: consumed by both GraphNet/MPNN and GCN paths",
+      fillcolor="#ffe4ad",
+      penwidth=1.8
+    ];
+
+    gt_ops [
+      label="lib.gt_ops\n_copy_structure(), _add_gt(), _zero_graph(),\n_concat_tensordicts(), _slice_conc_tensordict()\nRole: preserve topology while transforming feature tensors\nFit: reusable functional helpers over tensor dicts",
+      fillcolor="#fff0cf"
+    ];
+  }
+
+  subgraph cluster_layer_4 {
+    label="Layer 4: Backend tensor primitive layer";
+    color="#d4c2e8";
+    style="rounded,filled";
+    fillcolor="#fbf7ff";
+
+    backend_ops [
+      label="backend_ops.py\nFunctions: gather(), concat(), segment_sum(), segment_mean(),\nsegment_max_or_zero(), segment_min_or_zero(), convert_to_tensor()\nRole: small Keras ops facade\nFit: isolates framework-specific tensor operations",
+      fillcolor="#efe2ff"
+    ];
+
+    keras_ops [
+      label="keras.ops / active Keras backend\nTensorFlow, JAX, Torch\nRole: concrete tensor execution and compilation target\nFit: backend_ops delegates primitive operations here",
+      fillcolor="#efe2ff"
+    ];
+  }
+
+  graphnet_keras_layers -> graphnet_factories [label="configure blocks"];
+  graphnet_keras_layers -> graphnet_block [label="call eval_tensor_dict() through composed blocks"];
+  gcn_keras_layers -> tensor_dict_schema [label="read topology, update nodes"];
+  gcn_keras_layers -> backend_ops [label="normalize and aggregate sparse neighborhoods"];
+
+  graphnet_factories -> update_functions [label="build MLPs"];
+  graphnet_factories -> aggregation_functions [label="select reducers"];
+  graphnet_factories -> graphnet_block [label="provide constructor arguments"];
+  update_functions -> graphnet_block [label="edge/node/global functions"];
+  aggregation_functions -> graphnet_block [label="message reductions"];
+
+  object_graph -> graph_tuple [label="make_graph_tuple_from_graph_list()"];
+  graph_tuple -> object_graph [label="get_graph()"];
+  graph_tuple -> tensor_dict_schema [label="to_tensor_dict()"];
+  gt_ops -> tensor_dict_schema [label="functional transforms"];
+
+  graphnet_block -> tensor_dict_schema [label="consumes and returns"];
+  graphnet_block -> backend_ops [label="gather sender/receiver/global state"];
+  aggregation_functions -> backend_ops [label="segment reductions"];
+  tensor_dict_schema -> backend_ops [label="converted to backend tensors", style=dashed];
+  backend_ops -> keras_ops [label="delegates to"];
+}

@@ -14,6 +14,7 @@ copyright = f"{datetime.now():%Y}, {author}"
 extensions = [
     "sphinx.ext.autodoc",
     "sphinx.ext.autosummary",
+    "sphinx.ext.graphviz",
     "sphinx.ext.napoleon",
     "sphinx.ext.viewcode",
     "myst_nb",

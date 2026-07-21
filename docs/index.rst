@@ -10,6 +10,7 @@ building and composing GraphNet blocks.
 
    getting_started/installation
    getting_started/quickstart
+   architecture
 
 .. toctree::
    :maxdepth: 2

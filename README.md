@@ -1,5 +1,8 @@
 # `tf_gnns` - A Hackable GraphNets library
 ![alt-img](https://raw.githubusercontent.com/mylonasc/tf_gnns/main/docs/figures/tfgnns_logo2.png)
+
+**Documentation:** https://mylonasc.github.io/tf_gnns/
+
 A library for easy construction of message-passing networks in Keras 3.
 
 It is largely inspired by this [DeepMind paper](https://arxiv.org/abs/1806.01261) and the corresponding open-source library ([original graph_nets library](https://github.com/deepmind/graph_nets)).
