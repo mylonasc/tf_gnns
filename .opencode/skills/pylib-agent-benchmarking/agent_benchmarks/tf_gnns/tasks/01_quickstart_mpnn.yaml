@@ -1,0 +1,28 @@
+id: quickstart-mpnn-object-graph
+name: Quickstart MPNN Object Graph
+description: Build a small object graph, convert it to a tensor dictionary, and run GraphNetMPNN_MLP.
+timeout_seconds: 300
+tags:
+  - quickstart
+  - graphnet
+  - easy
+allowed_paths:
+  - agent_benchmark_solutions/quickstart_mpnn.py
+setup_commands: []
+validation_commands:
+  - python3 agent_benchmark_solutions/quickstart_mpnn.py
+prompt: |
+  You are working as a user of tf_gnns. Create a standalone script at `agent_benchmark_solutions/quickstart_mpnn.py` using only documented public APIs.
+
+  The script must:
+  - Build a directed object graph with three `Node` objects and three `Edge` objects using TensorFlow tensors.
+  - Convert it with `make_graph_tuple_from_graph_list(...).to_tensor_dict()`.
+  - Run `GraphNetMPNN_MLP(units=8, core_steps=1)` on the tensor dictionary.
+  - Assert that `nodes`, `edges`, `senders`, `receivers`, `n_nodes`, and `n_edges` are present in the output.
+  - Assert that the output has 3 node rows and 3 edge rows, and that structure tensors match the input.
+  - Print `quickstart mpnn benchmark passed` when the assertions succeed.
+
+  Do not modify files outside `agent_benchmark_solutions/quickstart_mpnn.py`.
+judge_rubric: |
+  Score from 1 to 5. Award high scores for a concise runnable quickstart script that uses Node/Edge/Graph, converts to a GraphTuple tensor dict, runs GraphNetMPNN_MLP, checks graph structure preservation with assertions, and edits only the allowed solution path.
+minimum_judge_score: 4

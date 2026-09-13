@@ -1,0 +1,27 @@
+id: sparse-gcn-edge-weights-dtypes
+name: SparseGCN Edge Weights And Dtypes
+description: Run SparseGCNConv and SparseGCN with edge weights, dtype configuration, and deterministic shape checks.
+timeout_seconds: 360
+tags:
+  - gcn
+  - sparse
+  - medium
+allowed_paths:
+  - agent_benchmark_solutions/sparse_gcn_edge_weights.py
+setup_commands: []
+validation_commands:
+  - python3 agent_benchmark_solutions/sparse_gcn_edge_weights.py
+prompt: |
+  You are working as a user of tf_gnns. Create a standalone script at `agent_benchmark_solutions/sparse_gcn_edge_weights.py` using only documented public APIs.
+
+  The script must:
+  - Build a small tensor dictionary for a 4-node directed sparse graph with `nodes`, `senders`, `receivers`, `n_nodes`, `n_edges`, `n_graphs`, and scalar `edge_weights`.
+  - Run `SparseGCNConv(units=5, activation=None, add_self_loops=True, normalize=True, feature_dtype="float64", index_dtype="int64")` on float64 node features and int64 indices.
+  - Assert that the convolution output has node shape `(4, 5)`, uses float64 features, and preserves sender/receiver values.
+  - Run `SparseGCN(hidden_units=[6, 6], output_units=3, dropout_rate=0.0, residual=True, residual_projection=True)` with `training=False` and assert node shape `(4, 3)`.
+  - Print `sparse gcn edge weights benchmark passed` when the assertions succeed.
+
+  Do not modify files outside `agent_benchmark_solutions/sparse_gcn_edge_weights.py`.
+judge_rubric: |
+  Score from 1 to 5. Award high scores for correct tf_gnns.models.gcn imports, edge weight usage, dtype/index configuration, SparseGCNConv and SparseGCN shape assertions, structure preservation, and narrow edits.
+minimum_judge_score: 4

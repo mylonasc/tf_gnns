@@ -1,0 +1,14 @@
+[
+  {
+    "label": "expected solution script was not created",
+    "regex": "No such file or directory.*agent_benchmark_solutions",
+    "corpus": "validation",
+    "remediation": "Make benchmark prompts explicit about the exact required output file path."
+  },
+  {
+    "label": "agent modified files outside allowed scope",
+    "regex": "Changed files outside allowed_paths",
+    "corpus": "validation",
+    "remediation": "Keep allowed_paths narrow and state the edit boundary in every task prompt."
+  }
+]

@@ -1,0 +1,32 @@
+[
+  {
+    "label": "GCNv2 imported from package root",
+    "regex": "from\\s+tf_gnns\\s+import\\s+.*\\bGCNv2\\b",
+    "corpus": "solution",
+    "remediation": "Document and emphasize that GCNv2 must be imported from tf_gnns.models.gcn."
+  },
+  {
+    "label": "private tf_gnns source spelunking",
+    "regex": "tf_gnns/(models|lib|commons)|tf_gnns/(graphnet_utils|tfgnns_datastructures|backend_ops)\\.py",
+    "corpus": "assistant",
+    "remediation": "Improve the user skill examples or API cards so agents do not need to inspect implementation files."
+  },
+  {
+    "label": "rank-1 Node construction",
+    "regex": "Node\\([^\\n]*(tf\\.constant|np\\.array)\\(\\s*\\[[^\\[]",
+    "corpus": "solution",
+    "remediation": "Clarify that Node features require rank at least 2, usually shape [1, feature_dim] in object graph examples."
+  },
+  {
+    "label": "missing global repetition keys",
+    "regex": "global_attr[\\s\\S]{0,800}(?!(global_reps_for_nodes|global_reps_for_edges))",
+    "corpus": "solution",
+    "remediation": "Add more tensor-dict examples that include global_reps_for_nodes and global_reps_for_edges whenever global_attr is present."
+  },
+  {
+    "label": "mutually exclusive GCN normalization options",
+    "regex": "batchnorm\\s*=\\s*True[\\s\\S]{0,200}layernorm\\s*=\\s*True|layernorm\\s*=\\s*True[\\s\\S]{0,200}batchnorm\\s*=\\s*True",
+    "corpus": "solution",
+    "remediation": "Emphasize in GCN docs that batchnorm and layernorm cannot both be enabled."
+  }
+]

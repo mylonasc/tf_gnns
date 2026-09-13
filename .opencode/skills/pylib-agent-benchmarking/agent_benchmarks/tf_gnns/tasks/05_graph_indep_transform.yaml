@@ -1,0 +1,27 @@
+id: graph-indep-transform-no-global
+name: GraphIndep No-Global Transform
+description: Apply GraphIndep to a no-global tensor dictionary and verify independent node and edge transforms.
+timeout_seconds: 300
+tags:
+  - graphnet
+  - graph-independent
+  - easy
+allowed_paths:
+  - agent_benchmark_solutions/graph_indep_transform.py
+setup_commands: []
+validation_commands:
+  - python3 agent_benchmark_solutions/graph_indep_transform.py
+prompt: |
+  You are working as a user of tf_gnns. Create a standalone script at `agent_benchmark_solutions/graph_indep_transform.py` using only documented public APIs.
+
+  The script must:
+  - Create a tensor dictionary with 3 nodes, 2 edges, structure keys, and `global_attr` set to `None`.
+  - Run `GraphIndep(units_out=6, create_global_function=False)`.
+  - Assert that output node and edge feature widths are 6 and that no global output is created.
+  - Assert that graph structure keys are unchanged.
+  - Print `graph indep transform benchmark passed` when the assertions succeed.
+
+  Do not modify files outside `agent_benchmark_solutions/graph_indep_transform.py`.
+judge_rubric: |
+  Score from 1 to 5. Award high scores for a minimal public-API GraphIndep example with no-global configuration, meaningful shape and structure assertions, and only the allowed file changed.
+minimum_judge_score: 4

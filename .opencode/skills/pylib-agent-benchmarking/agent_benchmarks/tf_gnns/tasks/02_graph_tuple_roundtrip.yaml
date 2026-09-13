@@ -1,0 +1,29 @@
+id: graph-tuple-roundtrip-globals
+name: GraphTuple Roundtrip With Globals
+description: Batch multiple object graphs, assign globals, inspect tensor-dict invariants, and reconstruct graphs.
+timeout_seconds: 360
+tags:
+  - graph-data
+  - graph-tuple
+  - medium
+allowed_paths:
+  - agent_benchmark_solutions/graph_tuple_roundtrip.py
+setup_commands: []
+validation_commands:
+  - python3 agent_benchmark_solutions/graph_tuple_roundtrip.py
+prompt: |
+  You are working as a user of tf_gnns. Create a standalone script at `agent_benchmark_solutions/graph_tuple_roundtrip.py` using only documented public APIs.
+
+  The script must:
+  - Define a helper that creates a small `Graph` with rank-2 node and edge feature tensors.
+  - Build two graphs with different feature values and batch them with `make_graph_tuple_from_graph_list`.
+  - Assign a two-row `global_attr` tensor with `check_shape=True`, update global repetitions if needed, and convert to a tensor dictionary.
+  - Assert that the tensor dictionary contains the documented graph keys, that node and edge row counts equal the sums of `n_nodes` and `n_edges`, and that `global_attr` has one row per graph.
+  - Use `get_graph(i)` to reconstruct both graphs and assert that their connectivity matches the originals.
+  - Create a two-node subgraph from one original graph with `get_subgraph_from_nodes(..., edge_trimming_mode="+from+to")` and assert it keeps exactly one edge.
+  - Print `graph tuple roundtrip benchmark passed` when the assertions succeed.
+
+  Do not modify files outside `agent_benchmark_solutions/graph_tuple_roundtrip.py`.
+judge_rubric: |
+  Score from 1 to 5. Award high scores for correct rank-2 object graph features, GraphTuple batching, global attributes and repetition handling, tensor-dict invariant checks, reconstruction via get_graph, subgraph extraction, and no edits outside the allowed solution file.
+minimum_judge_score: 4
