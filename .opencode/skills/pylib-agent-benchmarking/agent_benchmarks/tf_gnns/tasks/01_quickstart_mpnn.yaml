@@ -1,7 +1,7 @@
 id: quickstart-mpnn-object-graph
 name: Quickstart MPNN Object Graph
 description: Build a small object graph, convert it to a tensor dictionary, and run GraphNetMPNN_MLP.
-timeout_seconds: 300
+timeout_seconds: 600
 tags:
   - quickstart
   - graphnet
@@ -10,7 +10,7 @@ allowed_paths:
   - agent_benchmark_solutions/quickstart_mpnn.py
 setup_commands: []
 validation_commands:
-  - python3 agent_benchmark_solutions/quickstart_mpnn.py
+  - uv run python agent_benchmark_solutions/quickstart_mpnn.py
 prompt: |
   You are working as a user of tf_gnns. Create a standalone script at `agent_benchmark_solutions/quickstart_mpnn.py` using only documented public APIs.
 

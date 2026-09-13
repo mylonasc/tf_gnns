@@ -1,7 +1,7 @@
 id: graphnet-factory-aggregation-consistency
 name: GraphNet Factory Aggregation Consistency
 description: Use make_mlp_graphnet_functions and GraphNet to compare tensor-dict and GraphTuple evaluation paths.
-timeout_seconds: 420
+timeout_seconds: 600
 tags:
   - graphnet-utils
   - aggregation
@@ -10,7 +10,7 @@ allowed_paths:
   - agent_benchmark_solutions/graphnet_factory_aggregation.py
 setup_commands: []
 validation_commands:
-  - python3 agent_benchmark_solutions/graphnet_factory_aggregation.py
+  - uv run python agent_benchmark_solutions/graphnet_factory_aggregation.py
 prompt: |
   You are working as a user of tf_gnns. Create a standalone script at `agent_benchmark_solutions/graphnet_factory_aggregation.py` using only documented public APIs.
 

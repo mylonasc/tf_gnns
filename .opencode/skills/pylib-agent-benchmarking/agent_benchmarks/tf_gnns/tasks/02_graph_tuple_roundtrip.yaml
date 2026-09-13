@@ -1,7 +1,7 @@
 id: graph-tuple-roundtrip-globals
 name: GraphTuple Roundtrip With Globals
 description: Batch multiple object graphs, assign globals, inspect tensor-dict invariants, and reconstruct graphs.
-timeout_seconds: 360
+timeout_seconds: 600
 tags:
   - graph-data
   - graph-tuple
@@ -10,7 +10,7 @@ allowed_paths:
   - agent_benchmark_solutions/graph_tuple_roundtrip.py
 setup_commands: []
 validation_commands:
-  - python3 agent_benchmark_solutions/graph_tuple_roundtrip.py
+  - uv run python agent_benchmark_solutions/graph_tuple_roundtrip.py
 prompt: |
   You are working as a user of tf_gnns. Create a standalone script at `agent_benchmark_solutions/graph_tuple_roundtrip.py` using only documented public APIs.
 

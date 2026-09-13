@@ -1,7 +1,7 @@
 id: sparse-gcn-edge-weights-dtypes
 name: SparseGCN Edge Weights And Dtypes
 description: Run SparseGCNConv and SparseGCN with edge weights, dtype configuration, and deterministic shape checks.
-timeout_seconds: 360
+timeout_seconds: 600
 tags:
   - gcn
   - sparse
@@ -10,7 +10,7 @@ allowed_paths:
   - agent_benchmark_solutions/sparse_gcn_edge_weights.py
 setup_commands: []
 validation_commands:
-  - python3 agent_benchmark_solutions/sparse_gcn_edge_weights.py
+  - uv run python agent_benchmark_solutions/sparse_gcn_edge_weights.py
 prompt: |
   You are working as a user of tf_gnns. Create a standalone script at `agent_benchmark_solutions/sparse_gcn_edge_weights.py` using only documented public APIs.
 

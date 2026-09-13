@@ -1,0 +1,285 @@
+{
+  "entries": [
+    {
+      "example": "",
+      "import": "from tf_gnns.lib.gt_ops import _add_gt",
+      "name": "_add_gt",
+      "returns": "A new tensor dictionary with `g1` structure and summed features.",
+      "signature": "_add_gt(g1, g2)",
+      "source": "tf_gnns/lib/gt_ops.py:72",
+      "summary": "Add feature tensors from two tensor dictionaries.",
+      "topic": "quickstart"
+    },
+    {
+      "example": "",
+      "import": "from tf_gnns.graphnet_utils import _aggregation_function_factory",
+      "name": "_aggregation_function_factory",
+      "returns": "",
+      "signature": "_aggregation_function_factory(input_shape, agg_type='mean')",
+      "source": "tf_gnns/graphnet_utils.py:1336",
+      "summary": "A factory method to create aggregators for graphNets.",
+      "topic": "graphnets"
+    },
+    {
+      "example": "",
+      "import": "from tf_gnns.lib.gt_ops import _assign_add_tensor_dict",
+      "name": "_assign_add_tensor_dict",
+      "returns": "The updated `d_` dictionary.",
+      "signature": "_assign_add_tensor_dict(d_, od)",
+      "source": "tf_gnns/lib/gt_ops.py:123",
+      "summary": "Add feature tensors from `od` into `d_` in place.",
+      "topic": "quickstart"
+    },
+    {
+      "example": "",
+      "import": "from tf_gnns.lib.gt_ops import _concat_tensordicts",
+      "name": "_concat_tensordicts",
+      "returns": "A tensor dictionary containing concatenated features.",
+      "signature": "_concat_tensordicts(t1, t2)",
+      "source": "tf_gnns/lib/gt_ops.py:90",
+      "summary": "Concatenate graph feature tensors along the last axis.",
+      "topic": "quickstart"
+    },
+    {
+      "example": "",
+      "import": "from tf_gnns.lib.gt_ops import _copy_structure",
+      "name": "_copy_structure",
+      "returns": "A dictionary containing only graph structure keys.",
+      "signature": "_copy_structure(g_)",
+      "source": "tf_gnns/lib/gt_ops.py:110",
+      "summary": "Copy only graph bookkeeping fields from a tensor dictionary.",
+      "topic": "quickstart"
+    },
+    {
+      "example": "",
+      "import": "from tf_gnns.lib.gt_ops import _slice_conc_tensordict",
+      "name": "_slice_conc_tensordict",
+      "returns": "A list of tensor dictionaries preserving graph structure and slicing node/edge/global feature tensors by the provided widths.",
+      "signature": "_slice_conc_tensordict(td_, node_slices, edge_slices, glob_slices)",
+      "source": "tf_gnns/lib/gt_ops.py:139",
+      "summary": "Split concatenated graph features into multiple tensor dictionaries.",
+      "topic": "quickstart"
+    },
+    {
+      "example": "",
+      "import": "from tf_gnns.lib.gt_ops import _zero_graph",
+      "name": "_zero_graph",
+      "returns": "A copied tensor dictionary with zero-valued feature tensors.",
+      "signature": "_zero_graph(g_, state_size=None)",
+      "source": "tf_gnns/lib/gt_ops.py:16",
+      "summary": "Create a zero-valued tensor dictionary with the same graph structure.",
+      "topic": "quickstart"
+    },
+    {
+      "example": "",
+      "import": "from tf_gnns.lib.gt_ops import _zero_graph_tf",
+      "name": "_zero_graph_tf",
+      "returns": "A copied tensor dictionary with zero-valued feature tensors.",
+      "signature": "_zero_graph_tf(g_, state_size=None)",
+      "source": "tf_gnns/lib/gt_ops.py:43",
+      "summary": "TensorFlow-traceable variant of `_zero_graph`.",
+      "topic": "quickstart"
+    },
+    {
+      "example": "graphs",
+      "import": "from tf_gnns.tfgnns_datastructures import Edge",
+      "name": "Edge",
+      "returns": "",
+      "signature": "Edge(edge_attr_tensor, node_from, node_to)",
+      "source": "tf_gnns/tfgnns_datastructures.py:65",
+      "summary": "Directed edge connecting two :class:`Node` objects.",
+      "topic": "graphs"
+    },
+    {
+      "example": "",
+      "import": "from tf_gnns.models.graphnet import GNCellMLP",
+      "name": "GNCellMLP",
+      "returns": "",
+      "signature": "GNCellMLP(gn_mlp_units, core_size=None, node_output_size=None, edge_output_size=None, global_output_size=None, aggregation_function='mean', *args, **kwargs)",
+      "source": "tf_gnns/models/graphnet.py:19",
+      "summary": "Single GraphNet processing block implemented with MLPs.",
+      "topic": "graphnets"
+    },
+    {
+      "example": "graphs",
+      "import": "from tf_gnns.tfgnns_datastructures import Graph",
+      "name": "Graph",
+      "returns": "",
+      "signature": "Graph(nodes, edges, global_attr=None, NO_VALIDATION=True)",
+      "source": "tf_gnns/tfgnns_datastructures.py:99",
+      "summary": "Object graph made of node and edge instances.",
+      "topic": "graphs"
+    },
+    {
+      "example": "graphnets",
+      "import": "from tf_gnns.models.graphnet import GraphIndep",
+      "name": "GraphIndep",
+      "returns": "",
+      "signature": "GraphIndep(units_out, gn_mlp_units=[], node_output_size=None, edge_output_size=None, global_output_size=None, activation='relu', *args, **kwargs)",
+      "source": "tf_gnns/models/graphnet.py:263",
+      "summary": "Graph-independent block with optional global input handling.",
+      "topic": "graphnets"
+    },
+    {
+      "example": "graphnets",
+      "import": "from tf_gnns.graphnet_utils import GraphNet",
+      "name": "GraphNet",
+      "returns": "",
+      "signature": "GraphNet(edge_function=None, node_function=None, global_function=None, edge_aggregation_function=None, node_to_global_aggregation_function=None, graph_independent=False, use_global_input=False, name=None)",
+      "source": "tf_gnns/graphnet_utils.py:193",
+      "summary": "One GraphNet computation block.",
+      "topic": "graphnets"
+    },
+    {
+      "example": "graphnets",
+      "import": "from tf_gnns.models.graphnet import GraphNetMLP",
+      "name": "GraphNetMLP",
+      "returns": "",
+      "signature": "GraphNetMLP(units=32, core_units=None, core_size=None, gi_units=None, core_steps=1, edge_input_size=None, node_input_size=None, global_input_size=None, edge_output_size=None, node_output_size=None, global_output_size=None, recurrent=False, residual=True, aggregation_function='mean', *args, **kwargs)",
+      "source": "tf_gnns/models/graphnet.py:99",
+      "summary": "Encode-process-decode GraphNet model implemented with MLPs.",
+      "topic": "graphnets"
+    },
+    {
+      "example": "backends",
+      "import": "from tf_gnns.models.graphnet import GraphNetMPNN_MLP",
+      "name": "GraphNetMPNN_MLP",
+      "returns": "",
+      "signature": "GraphNetMPNN_MLP(units=32, core_units=None, core_size=None, gi_units=None, core_steps=1, edge_input_size=None, node_input_size=None, edge_output_size=None, node_output_size=None, recurrent=False, residual=True, aggregation_function='mean', *args, **kwargs)",
+      "source": "tf_gnns/models/graphnet.py:349",
+      "summary": "MLP-based MPNN without graph-level global state updates.",
+      "topic": "graphnets"
+    },
+    {
+      "example": "graphs",
+      "import": "from tf_gnns.tfgnns_datastructures import GraphTuple",
+      "name": "GraphTuple",
+      "returns": "",
+      "signature": "GraphTuple(nodes, edges, senders, receivers, n_nodes, n_edges, global_attr=None, global_reps_for_nodes=None, global_reps_for_edges=None, n_graphs=None)",
+      "source": "tf_gnns/tfgnns_datastructures.py:299",
+      "summary": "Batched graph representation used by GraphNet tensor-dict paths.",
+      "topic": "graphs"
+    },
+    {
+      "example": "",
+      "import": "from tf_gnns.graphnet_utils import make_edge_mlp",
+      "name": "make_edge_mlp",
+      "returns": "",
+      "signature": "make_edge_mlp(units, edge_state_input_shape=None, sender_node_state_output_shape=None, global_to_edge_state_size=None, receiver_node_state_shape=None, edge_output_state_size=None, use_edge_state=True, use_sender_out_state=True, use_receiver_state=True, use_global_state=False, graph_indep=False, activation='relu', **kwargs)",
+      "source": "tf_gnns/graphnet_utils.py:1111",
+      "summary": "When this is a graph-independent edge function, the node states from the sender and receiver are not used.",
+      "topic": "graphnets"
+    },
+    {
+      "example": "",
+      "import": "from tf_gnns.graphnet_utils import make_full_graphnet_functions",
+      "name": "make_full_graphnet_functions",
+      "returns": "Dictionary of constructor arguments for :class:`GraphNet` configured with edge, node, and global update functions.",
+      "signature": "make_full_graphnet_functions(units, node_or_core_input_size, node_or_core_output_size=None, edge_input_size=None, edge_output_size=None, global_input_size=None, global_output_size=None, aggregation_function='mean', **kwargs)",
+      "source": "tf_gnns/graphnet_utils.py:1829",
+      "summary": "Create GraphNet callables for a full message-passing block.",
+      "topic": "graphnets"
+    },
+    {
+      "example": "",
+      "import": "from tf_gnns.graphnet_utils import make_global_mlp",
+      "name": "make_global_mlp",
+      "returns": "",
+      "signature": "make_global_mlp(units, global_in_size=None, global_emb_size=None, node_in_size=None, edge_in_size=None, use_node_agg_input=True, use_edge_agg_input=True, use_global_state_input=True, node_to_global_agg=None, graph_indep=False, activation='relu', **kwargs)",
+      "source": "tf_gnns/graphnet_utils.py:1041",
+      "summary": "Always uses the global state input. May use node/edge aggregator (full GraphNet case)",
+      "topic": "graphnets"
+    },
+    {
+      "example": "",
+      "import": "from tf_gnns.graphnet_utils import make_graph_indep_graphnet_functions",
+      "name": "make_graph_indep_graphnet_functions",
+      "returns": "Dictionary of constructor arguments for :class:`GraphNet` configured in graph-independent mode.",
+      "signature": "make_graph_indep_graphnet_functions(units, node_or_core_input_size, node_or_core_output_size=None, edge_input_size=None, edge_output_size=None, global_input_size=None, global_output_size=None, aggregation_function='mean', create_global_function=True, use_global_input=True, **kwargs)",
+      "source": "tf_gnns/graphnet_utils.py:1680",
+      "summary": "Create GraphNet callables for a graph-independent block.",
+      "topic": "graphnets"
+    },
+    {
+      "example": "",
+      "import": "from tf_gnns.graphnet_utils import make_graph_to_graph_and_global_functions",
+      "name": "make_graph_to_graph_and_global_functions",
+      "returns": "Dictionary of constructor arguments for :class:`GraphNet`.",
+      "signature": "make_graph_to_graph_and_global_functions(units, node_or_core_input_size, global_output_size, node_or_core_output_size=None, edge_output_size=None, edge_input_size=None, aggregation_function='mean', **kwargs)",
+      "source": "tf_gnns/graphnet_utils.py:1617",
+      "summary": "Create a graph-to-graph-plus-global GraphNet function bundle.",
+      "topic": "quickstart"
+    },
+    {
+      "example": "graphs",
+      "import": "from tf_gnns.tfgnns_datastructures import make_graph_tuple_from_graph_list",
+      "name": "make_graph_tuple_from_graph_list",
+      "returns": "A :class:`GraphTuple` with flattened node/edge tensors and bookkeeping vectors (`senders`, `receivers`, `n_nodes`, `n_edges`).",
+      "signature": "make_graph_tuple_from_graph_list(list_of_graphs)",
+      "source": "tf_gnns/tfgnns_datastructures.py:236",
+      "summary": "Create a :class:`GraphTuple` from a list of object graphs.",
+      "topic": "graphs"
+    },
+    {
+      "example": "",
+      "import": "from tf_gnns.graphnet_utils import make_keras_simple_agg",
+      "name": "make_keras_simple_agg",
+      "returns": "",
+      "signature": "make_keras_simple_agg(input_size, agg_type)",
+      "source": "tf_gnns/graphnet_utils.py:1223",
+      "summary": "For consistency I'm making this a keras model (easier saving/loading)",
+      "topic": "graphnets"
+    },
+    {
+      "example": "graphnets",
+      "import": "from tf_gnns.graphnet_utils import make_mlp_graphnet_functions",
+      "name": "make_mlp_graphnet_functions",
+      "returns": "Dictionary of GraphNet constructor keyword arguments, including ``edge_function``, ``node_function``, optional ``global_function``, and aggregation callables.",
+      "signature": "make_mlp_graphnet_functions(units, node_input_size, node_output_size, edge_input_size=None, edge_output_size=None, create_global_function=False, global_input_size=None, global_output_size=None, use_global_input=False, use_global_to_edge=False, use_global_to_node=False, node_mlp_use_edge_state_agg_input=True, graph_indep=False, message_size='auto', aggregation_function='mean', node_to_global_aggr_fn=None, edge_to_global_aggr_fn=None, activation='relu', activate_last_layer=False, **kwargs)",
+      "source": "tf_gnns/graphnet_utils.py:1377",
+      "summary": "Build callables required to construct a :class:`GraphNet` block.",
+      "topic": "graphnets"
+    },
+    {
+      "example": "",
+      "import": "from tf_gnns.graphnet_utils import make_node_mlp",
+      "name": "make_node_mlp",
+      "returns": "",
+      "signature": "make_node_mlp(units, edge_message_input_shape=None, node_state_input_shape=None, global_state_input_shape=None, node_emb_size=None, use_global_input=False, use_edge_state_agg_input=True, graph_indep=False, use_node_state_input=True, activation='relu', **kwargs)",
+      "source": "tf_gnns/graphnet_utils.py:992",
+      "summary": "No docstring summary.",
+      "topic": "graphnets"
+    },
+    {
+      "example": "graphs",
+      "import": "from tf_gnns.tfgnns_datastructures import Node",
+      "name": "Node",
+      "returns": "",
+      "signature": "Node(node_attr_tensor)",
+      "source": "tf_gnns/tfgnns_datastructures.py:31",
+      "summary": "Graph node with a feature tensor.",
+      "topic": "graphs"
+    },
+    {
+      "example": "gcn",
+      "import": "from tf_gnns.models.gcn import SparseGCN",
+      "name": "SparseGCN",
+      "returns": "A tensor-dict with updated ``nodes`` and preserved graph structure keys.",
+      "signature": "SparseGCN(hidden_units, output_units=None, activation='relu', dropout_rate=0.0, add_self_loops=True, normalize=True, batchnorm=True, layernorm=False, jit_compile=False, residual=False, residual_projection=False, feature_dtype=None, index_dtype=None, **kwargs)",
+      "source": "tf_gnns/models/gcn.py:203",
+      "summary": "Multi-layer sparse GCN stack for node-level representations.",
+      "topic": "gcn"
+    },
+    {
+      "example": "gcn",
+      "import": "from tf_gnns.models.gcn import SparseGCNConv",
+      "name": "SparseGCNConv",
+      "returns": "",
+      "signature": "SparseGCNConv(units, activation=None, use_bias=True, add_self_loops=True, normalize=True, use_root_transform=True, batchnorm=True, layernorm=False, jit_compile=False, feature_dtype=None, index_dtype=None, **kwargs)",
+      "source": "tf_gnns/models/gcn.py:23",
+      "summary": "Single sparse GCN convolution layer.",
+      "topic": "gcn"
+    }
+  ],
+  "generated_by": "scripts/generate_agent_api_index.py"
+}

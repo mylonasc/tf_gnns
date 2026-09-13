@@ -1,7 +1,7 @@
 id: gcnv2-configuration-boundaries
 name: GCNv2 Configuration Boundaries
 description: Use GCNv2 correctly and assert documented invalid configurations raise errors.
-timeout_seconds: 360
+timeout_seconds: 600
 tags:
   - gcn
   - validation-boundary
@@ -10,7 +10,7 @@ allowed_paths:
   - agent_benchmark_solutions/gcnv2_boundaries.py
 setup_commands: []
 validation_commands:
-  - python3 agent_benchmark_solutions/gcnv2_boundaries.py
+  - uv run python agent_benchmark_solutions/gcnv2_boundaries.py
 prompt: |
   You are working as a user of tf_gnns. Create a standalone script at `agent_benchmark_solutions/gcnv2_boundaries.py` using only documented public APIs.
 
