@@ -15,9 +15,9 @@ prompt: |
   You are working as a user of tf_gnns. Create a standalone script at `agent_benchmark_solutions/graph_indep_transform.py` using only documented public APIs.
 
   The script must:
-  - Create a tensor dictionary with 3 nodes, 2 edges, structure keys, and `global_attr` set to `None`.
-  - Run `GraphIndep(units_out=6, create_global_function=False)`.
-  - Assert that output node and edge feature widths are 6 and that no global output is created.
+  - Create a tensor dictionary with 3 nodes, 2 edges, and the structure keys (`senders`, `receivers`, `n_nodes`, `n_edges`, `n_graphs`), with no `global_attr` key.
+  - Run `GraphIndep(units_out=6)` in its no-global configuration (note: `GraphIndep` has no `create_global_function` kwarg; the no-global path is selected by omitting `global_attr` from the input dict).
+  - Assert that output node and edge feature widths are 6 and that no global output is created (no `global_attr` key in the output).
   - Assert that graph structure keys are unchanged.
   - Print `graph indep transform benchmark passed` when the assertions succeed.
 
