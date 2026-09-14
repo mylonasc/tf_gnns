@@ -66,5 +66,7 @@ for tf_ver in "${TF_VERSIONS[@]}"; do
     uv pip install --python "$venv_dir/bin/python" "tf_keras==${tf_ver}.*"
   fi
 
+  "$venv_dir/bin/python" scripts/generate_agent_api_index.py
+
   "$venv_dir/bin/python" -m pytest -v
 done
