@@ -1,0 +1,29 @@
+id: tensorflow-compiled-forward
+name: TensorFlow Compiled Forward
+description: Apply TensorFlow graph compilation at the application level around a tf_gnns model forward pass.
+timeout_seconds: 600
+tags:
+  - backend
+  - tensorflow
+  - compilation
+  - hard
+allowed_paths:
+  - agent_benchmark_solutions/tensorflow_compiled_forward.py
+setup_commands: []
+validation_commands:
+  - uv run python agent_benchmark_solutions/tensorflow_compiled_forward.py
+prompt: |
+  You are working as a user of tf_gnns. Create a standalone script at `agent_benchmark_solutions/tensorflow_compiled_forward.py` using only documented public APIs.
+
+  The script must:
+  - Build a TensorFlow tensor dictionary for one graph with 4 nodes, 4 edges, and `global_attr` plus global repetition vectors.
+  - Instantiate `GraphNetMLP(units=12, core_steps=2, node_output_size=4, edge_output_size=3, global_output_size=2)`.
+  - Define an application-level `@tf.function` forward function that calls the model on the tensor dictionary. Do not change tf_gnns internals to enable compilation.
+  - Call the compiled function twice and assert the second output has node shape `(4, 4)`, edge shape `(4, 3)`, and global shape `(1, 2)`.
+  - Compute a scalar loss from the output tensors with `tf.reduce_mean` and assert it is finite.
+  - Print `tensorflow compiled forward benchmark passed` when the assertions succeed.
+
+  Do not modify files outside `agent_benchmark_solutions/tensorflow_compiled_forward.py`.
+judge_rubric: |
+  Score from 1 to 5. Award high scores for applying TensorFlow compilation at the application level, correct GraphNetMLP usage with globals, repeated compiled calls, finite scalar loss assertion, and no source/internal edits.
+minimum_judge_score: 4

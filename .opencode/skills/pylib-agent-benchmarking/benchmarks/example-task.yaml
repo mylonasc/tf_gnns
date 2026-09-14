@@ -1,0 +1,27 @@
+id: example-stdlib-usage-script
+name: Example Stdlib Usage Script
+description: Create a tiny script that demonstrates the benchmark harness using only Python stdlib.
+timeout_seconds: 120
+tags:
+  - example
+  - deterministic-validation
+allowed_paths:
+  - agent_benchmark_solutions/example_usage.py
+setup_commands: []
+validation_commands:
+  - python agent_benchmark_solutions/example_usage.py
+prompt: |
+  Create a standalone script at `agent_benchmark_solutions/example_usage.py`.
+
+  The script must:
+  - Use only Python standard library modules.
+  - Define `normalize_names(names)` that strips whitespace and title-cases names.
+  - Assert `normalize_names([" alice ", "BOB"]) == ["Alice", "Bob"]`.
+  - Print `example benchmark passed` when the assertion succeeds.
+
+  Do not modify files outside `agent_benchmark_solutions/example_usage.py`.
+judge_rubric: |
+  Score from 1 to 5. Award high scores for a concise runnable script that creates
+  the requested function, uses meaningful assertions, prints the requested success
+  message, and edits only the allowed solution path.
+minimum_judge_score: 4

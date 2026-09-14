@@ -1,0 +1,27 @@
+id: graphnet-factory-aggregation-consistency
+name: GraphNet Factory Aggregation Consistency
+description: Use make_mlp_graphnet_functions and GraphNet to compare tensor-dict and GraphTuple evaluation paths.
+timeout_seconds: 600
+tags:
+  - graphnet-utils
+  - aggregation
+  - hard
+allowed_paths:
+  - agent_benchmark_solutions/graphnet_factory_aggregation.py
+setup_commands: []
+validation_commands:
+  - uv run python agent_benchmark_solutions/graphnet_factory_aggregation.py
+prompt: |
+  You are working as a user of tf_gnns. Create a standalone script at `agent_benchmark_solutions/graphnet_factory_aggregation.py` using only documented public APIs.
+
+  The script must:
+  - Build a two-graph tensor dictionary with 4 total nodes, 4 total edges, `global_attr`, `global_reps_for_nodes`, and `global_reps_for_edges`.
+  - Create GraphNet keyword arguments with `make_mlp_graphnet_functions` using `aggregation_function="mean_max_min_sum"`, `use_global_input=True`, `use_global_to_edge=True`, `use_global_to_node=True`, `create_global_function=True`, and explicit node, edge, and global output sizes.
+  - Instantiate `GraphNet(**kwargs)` and evaluate both `eval_tensor_dict(td.copy())` and `graph_tuple_eval(GraphTuple(...).copy())` using the same graph data.
+  - Assert that node, edge, and global outputs from both paths have the requested feature sizes and are numerically close.
+  - Print `graphnet factory aggregation benchmark passed` when the assertions succeed.
+
+  Do not modify files outside `agent_benchmark_solutions/graphnet_factory_aggregation.py`.
+judge_rubric: |
+  Score from 1 to 5. Award high scores for correct use of make_mlp_graphnet_functions, global routing flags, composite aggregation, GraphNet evaluation on tensor dict and GraphTuple paths, numerical close assertions, and no source/internal edits.
+minimum_judge_score: 4

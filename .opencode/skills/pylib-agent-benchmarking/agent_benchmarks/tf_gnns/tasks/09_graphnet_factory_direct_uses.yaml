@@ -1,0 +1,27 @@
+id: graphnet-factory-direct-uses
+name: GraphNet Factory Direct Uses And Object-Graph Dispatch
+description: Build GraphNet blocks directly from factory functions, evaluate on tensor dicts and (no-global) object graphs.
+timeout_seconds: 600
+tags:
+  - graphnet-utils
+  - factories
+  - medium
+allowed_paths:
+  - agent_benchmark_solutions/graphnet_factory_direct_uses.py
+setup_commands: []
+validation_commands:
+  - uv run python agent_benchmark_solutions/graphnet_factory_direct_uses.py
+prompt: |
+  You are working as a user of tf_gnns. Create a standalone script at `agent_benchmark_solutions/graphnet_factory_direct_uses.py` using only documented public APIs.
+
+  The script must:
+  - Import `make_full_graphnet_functions`, `make_mpnn_graphnet_noglobal_functions`, `GraphNet`, `Node`, `Edge`, `Graph` from the appropriate modules.
+  - Build a **full** GraphNet block via `make_full_graphnet_functions(units=32, node_or_core_input_size=3, node_or_core_output_size=5, edge_input_size=2, edge_output_size=7, global_input_size=2, global_output_size=3)`, instantiate `GraphNet(**fns)`, and evaluate it on a two-graph tensor dictionary (4 total nodes, 4 total edges) via `eval_tensor_dict(td.copy())`. Assert output shapes: nodes `(4,5)`, edges `(4,7)`, global `(2,3)`.
+  - Build a **no-global** MPNN block via `make_mpnn_graphnet_noglobal_functions(units=32, node_or_core_input_size=3, node_or_core_output_size=5, edge_input_size=2, edge_output_size=7)`, instantiate `GraphNet(...)`, and evaluate on a no-global tensor dictionary. Assert nodes `(4,5)`, edges `(4,7)`, and `"global_attr" not in out`.
+  - Evaluate the no-global block on an **object Graph** (three `Node`s, two `Edge`s) via `net_mpnn.graph_eval(graph)` and assert node output width is 5 and edge output width is 7.
+  - Print `graphnet factory direct uses benchmark passed` when all assertions succeed.
+
+  Do not modify files outside `agent_benchmark_solutions/graphnet_factory_direct_uses.py`.
+judge_rubric: |
+  Score from 1 to 5. Award high scores for correct direct factory function usage, integer units, correct GraphNet instantiation, eval_tensor_dict shape assertions, no-global dict key check, object-graph dispatch via graph_eval, and narrow edits.
+minimum_judge_score: 4

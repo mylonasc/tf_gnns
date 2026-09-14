@@ -1,0 +1,29 @@
+id: gcnv2-configuration-boundaries
+name: GCNv2 Configuration Boundaries
+description: Use GCNv2 correctly and assert documented invalid configurations raise errors.
+timeout_seconds: 600
+tags:
+  - gcn
+  - validation-boundary
+  - medium
+allowed_paths:
+  - agent_benchmark_solutions/gcnv2_boundaries.py
+setup_commands: []
+validation_commands:
+  - uv run python agent_benchmark_solutions/gcnv2_boundaries.py
+prompt: |
+  You are working as a user of tf_gnns. Create a standalone script at `agent_benchmark_solutions/gcnv2_boundaries.py` using only documented public APIs.
+
+  The script must:
+  - Import `GCNv2` from `tf_gnns.models.gcn`, not from the package root.
+  - Build a deterministic tensor dictionary with 5 nodes and 6 directed edges.
+  - Run `GCNv2(hidden_units=8, output_units=4, num_layers=3, input_dropout_rate=0.0, dropout_rate=0.0, residual=True, residual_projection=True, batchnorm=False, layernorm=True)` with `training=False`.
+  - Assert the output node shape is `(5, 4)` and sender/receiver values are preserved.
+  - Assert that constructing `GCNv2(..., num_layers=0)` raises `ValueError`.
+  - Assert that constructing `GCNv2(..., batchnorm=True, layernorm=True)` raises `ValueError`.
+  - Print `gcnv2 boundaries benchmark passed` when the assertions succeed.
+
+  Do not modify files outside `agent_benchmark_solutions/gcnv2_boundaries.py`.
+judge_rubric: |
+  Score from 1 to 5. Award high scores for correct submodule import, valid GCNv2 execution, documented boundary checks with ValueError assertions, structure preservation checks, and no edits outside the allowed solution file.
+minimum_judge_score: 4

@@ -1,0 +1,30 @@
+id: graphnet-aggregation-modes
+name: GraphNet Aggregation Modes And Message Widths
+description: Compare all seven aggregation modes by inspecting the edge_state_agg message width fed to the node update.
+timeout_seconds: 600
+tags:
+  - graphnet-utils
+  - aggregation
+  - medium
+allowed_paths:
+  - agent_benchmark_solutions/graphnet_aggregation_modes.py
+setup_commands: []
+validation_commands:
+  - uv run python agent_benchmark_solutions/graphnet_aggregation_modes.py
+prompt: |
+  You are working as a user of tf_gnns. Create a standalone script at `agent_benchmark_solutions/graphnet_aggregation_modes.py` using only documented public APIs.
+
+  The script must:
+  - Import `make_mlp_graphnet_functions` and `GraphNet` from `tf_gnns.graphnet_utils`.
+  - Use a fixed **integer** `units=16`, `node_output_size=5`, `edge_output_size=5`, `global_output_size=3`, `node_input_size=3`, `edge_input_size=2`, `global_input_size=2`, `create_global_function=True`, `use_global_input=True`, `use_global_to_edge=True`, `use_global_to_node=True`.
+  - For each aggregation mode in `["mean", "sum", "max", "min", "mean_max", "mean_max_min", "mean_max_min_sum"]`:
+    - Build a `GraphNet` with that mode.
+    - Read the `edge_state_agg` input width from `net.node_function.inputs` (the input whose name contains `"edge_state_agg"`).
+    - Assert that width equals the **multiplier** times `edge_output_size` (5): `mean/sum/max/min` -> 5, `mean_max` -> 10, `mean_max_min` -> 15, `mean_max_min_sum` -> 20.
+    - Evaluate on a small tensor dictionary and assert node output `(3,5)`, global output `(1,3)`.
+  - Print `graphnet aggregation modes benchmark passed` when all assertions succeed.
+
+  Do not modify files outside `agent_benchmark_solutions/graphnet_aggregation_modes.py`.
+judge_rubric: |
+  Score from 1 to 5. Award high scores for iterating all seven aggregation modes, integer units, inspecting edge_state_agg input width on node_function, correct multiplier assertions, eval_tensor_dict shape checks, and narrow edits.
+minimum_judge_score: 4

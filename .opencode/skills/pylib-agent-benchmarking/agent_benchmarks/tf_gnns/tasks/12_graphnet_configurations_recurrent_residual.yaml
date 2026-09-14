@@ -1,0 +1,29 @@
+id: graphnet-configurations-recurrent-residual
+name: GraphNet Recurrent, Residual, And GNCellMLP Configurations
+description: Compare recurrent vs non-recurrent weight counts, residual on/off, and GNCellMLP single-step behavior.
+timeout_seconds: 600
+tags:
+  - graphnet-utils
+  - configurations
+  - medium
+allowed_paths:
+  - agent_benchmark_solutions/graphnet_configurations.py
+setup_commands: []
+validation_commands:
+  - uv run python agent_benchmark_solutions/graphnet_configurations.py
+prompt: |
+  You are working as a user of tf_gnns. Create a standalone script at `agent_benchmark_solutions/graphnet_configurations.py` using only documented public APIs.
+
+  The script must:
+  - Import `GraphNetMLP`, `GraphNetMPNN_MLP`, and `GNCellMLP` from `tf_gnns.models.graphnet`.
+  - Build a no-global tensor dictionary (3 nodes, 3 edges, 2-dim node features, 3-dim edge features, 1-dim senders/receivers).
+  - Build `m_rec = GraphNetMPNN_MLP(units=16, core_steps=4, recurrent=True)` and `m_non = GraphNetMPNN_MLP(units=16, core_steps=4, recurrent=False)`. **Call both first** to populate `all_weights`, then assert `len(m_rec.all_weights) < len(m_non.all_weights)`.
+  - Assert both output node width equals the input node width (2) when `node_output_size` is not set.
+  - Build `m_nores = GraphNetMPNN_MLP(units=16, core_steps=2, residual=False)` and assert it also works (same output shape).
+  - Build `cell = GNCellMLP(gn_mlp_units=16, core_size=5)` and evaluate it on a dict that includes `global_attr` (1 graph, 2-dim global). Assert nodes `(3,5)`, edges `(3,5)`, global `(1,5)`. Note: `gn_mlp_units` must be an integer; a list silently overrides the output sizes.
+  - Print `graphnet configurations recurrent residual benchmark passed` when all assertions succeed.
+
+  Do not modify files outside `agent_benchmark_solutions/graphnet_configurations.py`.
+judge_rubric: |
+  Score from 1 to 5. Award high scores for using integer gn_mlp_units for GNCellMLP, calling before inspecting all_weights, correct recurrent weight comparison, residual on/off validation, GNCellMLP core_size output assertions, and narrow edits.
+minimum_judge_score: 4

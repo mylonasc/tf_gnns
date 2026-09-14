@@ -1,0 +1,27 @@
+id: graphnet-mlp-globals-explicit-sizes
+name: GraphNetMLP Globals And Explicit Sizes
+description: Run GraphNetMLP on a tensor dictionary with globals and explicit node, edge, and global output sizes.
+timeout_seconds: 600
+tags:
+  - graphnet
+  - globals
+  - medium
+allowed_paths:
+  - agent_benchmark_solutions/graphnet_mlp_globals.py
+setup_commands: []
+validation_commands:
+  - uv run python agent_benchmark_solutions/graphnet_mlp_globals.py
+prompt: |
+  You are working as a user of tf_gnns. Create a standalone script at `agent_benchmark_solutions/graphnet_mlp_globals.py` using only documented public APIs.
+
+  The script must:
+  - Construct a deterministic tensor-dictionary graph with 4 nodes, 5 directed edges, one graph, `global_attr`, and both global repetition vectors.
+  - Run `GraphNetMLP(units=16, core_steps=2, recurrent=False, residual=True, node_output_size=7, edge_output_size=5, global_output_size=3)`.
+  - Assert exact output feature shapes `(4, 7)`, `(5, 5)`, and `(1, 3)` for nodes, edges, and global attributes.
+  - Assert that `senders`, `receivers`, `n_nodes`, `n_edges`, `n_graphs`, `global_reps_for_nodes`, and `global_reps_for_edges` are unchanged.
+  - Print `graphnet mlp globals benchmark passed` when the assertions succeed.
+
+  Do not modify files outside `agent_benchmark_solutions/graphnet_mlp_globals.py`.
+judge_rubric: |
+  Score from 1 to 5. Award high scores for correct tensor-dict construction with globals, documented GraphNetMLP import and arguments, exact shape checks, structure preservation assertions, deterministic execution, and narrow edits.
+minimum_judge_score: 4

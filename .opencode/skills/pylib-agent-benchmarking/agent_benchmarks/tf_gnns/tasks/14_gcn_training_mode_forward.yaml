@@ -1,0 +1,28 @@
+id: gcn-training-mode-forward
+name: GCN Training Mode Forward Pass
+description: Run SparseGCNConv, SparseGCN, and GCNv2 with training=True/False and verify shapes and finite outputs.
+timeout_seconds: 600
+tags:
+  - gcn
+  - training
+  - medium
+allowed_paths:
+  - agent_benchmark_solutions/gcn_training_mode_forward.py
+setup_commands: []
+validation_commands:
+  - uv run python agent_benchmark_solutions/gcn_training_mode_forward.py
+prompt: |
+  You are working as a user of tf_gnns. Create a standalone script at `agent_benchmark_solutions/gcn_training_mode_forward.py` using only documented public APIs.
+
+  The script must:
+  - Import `SparseGCNConv`, `SparseGCN`, and `GCNv2` from `tf_gnns.models.gcn`.
+  - Build a 4-node tensor dictionary with `nodes`, `senders`, `receivers`, `n_nodes`, `n_edges`, `n_graphs` (no edge weights needed).
+  - Run `SparseGCNConv(units=4, activation=None)` on the dict with `training=True` and `training=False`; assert output node shape `(4,4)` both times and that all values are finite.
+  - Run `SparseGCN(hidden_units=[5,5], output_units=2, dropout_rate=0.3, residual=True, residual_projection=True)` with `training=True`; assert node shape `(4,2)` and all values finite.
+  - Run `GCNv2(hidden_units=6, output_units=3, num_layers=2, input_dropout_rate=0.2, dropout_rate=0.3, residual=True, residual_projection=True, batchnorm=True)` with `training=True`; assert node shape `(4,3)` and all values finite.
+  - Print `gcn training mode forward benchmark passed` when all assertions succeed.
+
+  Do not modify files outside `agent_benchmark_solutions/gcn_training_mode_forward.py`.
+judge_rubric: |
+  Score from 1 to 5. Award high scores for correct GCN imports, training=True/False usage, SparseGCNConv/SparseGCN/GCNv2 shape assertions, finite-value checks, correct SparseGCN training kwarg propagation, and narrow edits.
+minimum_judge_score: 4
