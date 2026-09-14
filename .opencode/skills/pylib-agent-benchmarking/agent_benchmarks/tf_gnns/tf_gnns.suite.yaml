@@ -19,6 +19,7 @@ agent_prompt: |
   Step 3: write the solution file directly from the rules, shape table, and parameter key facts. Derive code from the API contract rather than copying example blocks. Keep the code lean: no docstrings or exploratory prints.
   Step 4: validate with the requested command, keeping the log compact: `uv run python <script> 2>&1 | tail -40`. On failure, re-read the tail of the script output; a longer read is only needed when the tail is not enough.
   Step 5: fix the specific failing assertion with a focused search for the failing API; do not re-read pages you already retrieved, and do not grep on tf_gnns source files.
+  Derive the solution from the retrieved contracts rather than rediscovering behavior by experiment: when in doubt, re-grep the concepts page output you already fetched before anything else, and run the solution to check it — avoid probe scripts and repeated experiments.
   Keep reasoning and messages short — a few sentences per step; do not restate what you already know.
   Run Python with `uv run python <script>`; TensorFlow is already installed in the project uv environment, so do not search for system Python, create virtualenvs, inspect git history, or list unrelated directories.
   Prefer the tf-gnns-user-docs opencode skill and `python -m tf_gnns.agent_docs` over reading library source internals.
