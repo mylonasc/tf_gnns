@@ -16,9 +16,9 @@ prompt: |
 
   The script must:
   - Import `make_full_graphnet_functions`, `make_mpnn_graphnet_noglobal_functions`, `GraphNet`, `Node`, `Edge`, `Graph` from the appropriate modules.
-  - Build a **full** GraphNet block via `make_full_graphnet_functions(units=24, node_or_core_input_size=3, node_or_core_output_size=6, edge_input_size=2, edge_output_size=6, global_input_size=2, global_output_size=4)`, instantiate `GraphNet(**fns)`, and evaluate it on a two-graph tensor dictionary (4 total nodes, 4 total edges) via `eval_tensor_dict(td.copy())`. Assert output shapes: nodes `(4,6)`, edges `(4,6)`, global `(2,4)`.
-  - Build a **no-global** MPNN block via `make_mpnn_graphnet_noglobal_functions(units=24, node_or_core_input_size=3, node_or_core_output_size=6, edge_input_size=2, edge_output_size=6)`, instantiate `GraphNet(...)`, and evaluate on a no-global tensor dictionary. Assert nodes `(4,6)`, edges `(4,6)`, and `"global_attr" not in out`.
-  - Evaluate the no-global block on an **object Graph** (three `Node`s, two `Edge`s) via `net_mpnn.graph_eval(graph)` and assert node/edge output widths are 6.
+  - Build a **full** GraphNet block via `make_full_graphnet_functions(units=32, node_or_core_input_size=3, node_or_core_output_size=5, edge_input_size=2, edge_output_size=7, global_input_size=2, global_output_size=3)`, instantiate `GraphNet(**fns)`, and evaluate it on a two-graph tensor dictionary (4 total nodes, 4 total edges) via `eval_tensor_dict(td.copy())`. Assert output shapes: nodes `(4,5)`, edges `(4,7)`, global `(2,3)`.
+  - Build a **no-global** MPNN block via `make_mpnn_graphnet_noglobal_functions(units=32, node_or_core_input_size=3, node_or_core_output_size=5, edge_input_size=2, edge_output_size=7)`, instantiate `GraphNet(...)`, and evaluate on a no-global tensor dictionary. Assert nodes `(4,5)`, edges `(4,7)`, and `"global_attr" not in out`.
+  - Evaluate the no-global block on an **object Graph** (three `Node`s, two `Edge`s) via `net_mpnn.graph_eval(graph)` and assert node output width is 5 and edge output width is 7.
   - Print `graphnet factory direct uses benchmark passed` when all assertions succeed.
 
   Do not modify files outside `agent_benchmark_solutions/graphnet_factory_direct_uses.py`.

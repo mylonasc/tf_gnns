@@ -16,7 +16,7 @@ prompt: |
 
   The script must:
   - Import `GraphNet`, `make_graph_indep_graphnet_functions`, `make_full_graphnet_functions`, `numpy`, `tempfile`, and `tensorflow`.
-  - Build a **no-global, graph-independent** block via `make_graph_indep_graphnet_functions(units=24, node_or_core_input_size=3, node_or_core_output_size=6, edge_input_size=2, edge_output_size=6, create_global_function=False, use_global_input=False)`, instantiate `GraphNet(**fns)`, and evaluate on a small tensor dictionary (3 nodes, 3 edges, no `global_attr` key).
+  - Build a **no-global, graph-independent** block via `make_graph_indep_graphnet_functions(units=16, node_or_core_input_size=3, node_or_core_output_size=8, edge_input_size=2, edge_output_size=4, create_global_function=False, use_global_input=False)`, instantiate `GraphNet(**fns)`, and evaluate on a small tensor dictionary (3 nodes, 3 edges, no `global_attr` key).
   - Save the block to a temp directory with `net.save(path)` and reload via `GraphNet.make_from_path(path)`.
   - Assert that the reloaded block's output is numerically close (`numpy.allclose`) to the original, and that `len(net.weights) == len(reloaded.weights)`.
   - Also call `blank = GraphNet(node_function=None, edge_function=None); blank.load(path)` and assert `blank.node_function is not None`.

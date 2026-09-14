@@ -8,8 +8,9 @@ description: Use when writing code against tf_gnns graph data structures, GraphN
 ## Fast Retrieval
 
 - List topics: `python -m tf_gnns.agent_docs list`
-- Read a topic: `python -m tf_gnns.agent_docs get quickstart`
-- Read examples only: `python -m tf_gnns.agent_docs get graphs --examples`
+- Read a topic (full page): `python -m tf_gnns.agent_docs get quickstart`
+- **Read concepts first** (How It Works, Decision Guide, Parameter Key Facts, Boundaries): `python -m tf_gnns.agent_docs get graphnets --concepts`
+- Read examples only (last resort, after concepts): `python -m tf_gnns.agent_docs get graphs --examples`
 - Search docs and API cards: `python -m tf_gnns.agent_docs search "GraphTuple|SparseGCN" --limit 5`
 - Install into a worktree: `python -m tf_gnns.agent_docs install-opencode-skill --project-root .`
 
@@ -23,12 +24,13 @@ description: Use when writing code against tf_gnns graph data structures, GraphN
 
 ## Agent Workflow
 
-- Read the reference page matching the task (`get <topic>` and `get <topic> --examples`) before writing code.
+- Read the concept sections of the matching page first: `get <topic> --concepts` (How It Works, Decision Guide, Parameter Key Facts, Boundaries & Gotchas).
+- Read `--examples` only after concepts, and treat examples as reference, not as templates to copy.
 - Prefer `python -m tf_gnns.agent_docs` over reading library source. The docs cover every public task this suite tests.
 - Use `search` for signatures and API cards before guessing argument names.
 - Every reference page has an `## API Signatures (authoritative)` section listing exact constructors, kwargs, and defaults. Never use Python `inspect` or read `tf_gnns` source to learn a signature — the docs page already lists it.
 - Each reference page also documents an **Output Contract** (which keys and shapes are produced); trust it instead of probing with trial scripts.
-- Write the solution file first, then validate and iterate; keep edits inside the allowed file.
+- Derive code from the rules, shape table, and parameter key facts; write the solution file first, then validate and iterate; keep edits inside the allowed file.
 
 ## Environment
 

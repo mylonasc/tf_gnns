@@ -41,6 +41,16 @@ def test_search_prints_api_cards_and_pages(capsys):
     assert "signature:" in output
 
 
+def test_concepts_flag_returns_concepts_not_examples(capsys):
+    assert agent_docs.main(["get", "graphnets", "--concepts"]) == 0
+    output = capsys.readouterr().out
+    assert "## How It Works" in output
+    assert "## Decision Guide" in output
+    assert "## Parameter Key Facts" in output
+    assert "## Output Contract" in output
+    assert "## Example Gallery" not in output
+
+
 def test_installer_refuses_overwrite_without_force(tmp_path):
     assert agent_docs.main(["install-opencode-skill", "--project-root", str(tmp_path)]) == 0
     installed = tmp_path / ".opencode" / "skills" / agent_docs.SKILL_NAME
@@ -56,7 +66,8 @@ def test_api_index_is_fresh_and_has_examples():
     generate_index_main(["--check"])
     index = json.loads(Path("tf_gnns/agent_skill/api_index.json").read_text(encoding="utf-8"))
     names = {entry["name"] for entry in index["entries"]}
-    assert {"GraphTuple", "make_mlp_graphnet_functions", "SparseGCN"}.issubset(names)
+    assert {"GraphTuple", "make_mlp_graphnet_functions", "SparseGCN", "GCNv2"}.issubset(names)
+    assert not any(name.startswith("_") for name in names), "private helpers leaked into the API index"
     covered = {entry["name"] for entry in index["entries"] if entry["example"]}
-    assert {"GraphTuple", "GraphNetMPNN_MLP", "SparseGCN"}.issubset(covered)
+    assert {"GraphTuple", "GraphNetMPNN_MLP", "SparseGCN", "GCNv2"}.issubset(covered)
     assert build_index() == index

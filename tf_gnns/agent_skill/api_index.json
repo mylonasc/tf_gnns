@@ -1,86 +1,6 @@
 {
   "entries": [
     {
-      "example": "",
-      "import": "from tf_gnns.lib.gt_ops import _add_gt",
-      "name": "_add_gt",
-      "returns": "A new tensor dictionary with `g1` structure and summed features.",
-      "signature": "_add_gt(g1, g2)",
-      "source": "tf_gnns/lib/gt_ops.py:72",
-      "summary": "Add feature tensors from two tensor dictionaries.",
-      "topic": "quickstart"
-    },
-    {
-      "example": "",
-      "import": "from tf_gnns.graphnet_utils import _aggregation_function_factory",
-      "name": "_aggregation_function_factory",
-      "returns": "",
-      "signature": "_aggregation_function_factory(input_shape, agg_type='mean')",
-      "source": "tf_gnns/graphnet_utils.py:1336",
-      "summary": "A factory method to create aggregators for graphNets.",
-      "topic": "graphnets"
-    },
-    {
-      "example": "",
-      "import": "from tf_gnns.lib.gt_ops import _assign_add_tensor_dict",
-      "name": "_assign_add_tensor_dict",
-      "returns": "The updated `d_` dictionary.",
-      "signature": "_assign_add_tensor_dict(d_, od)",
-      "source": "tf_gnns/lib/gt_ops.py:123",
-      "summary": "Add feature tensors from `od` into `d_` in place.",
-      "topic": "quickstart"
-    },
-    {
-      "example": "",
-      "import": "from tf_gnns.lib.gt_ops import _concat_tensordicts",
-      "name": "_concat_tensordicts",
-      "returns": "A tensor dictionary containing concatenated features.",
-      "signature": "_concat_tensordicts(t1, t2)",
-      "source": "tf_gnns/lib/gt_ops.py:90",
-      "summary": "Concatenate graph feature tensors along the last axis.",
-      "topic": "quickstart"
-    },
-    {
-      "example": "",
-      "import": "from tf_gnns.lib.gt_ops import _copy_structure",
-      "name": "_copy_structure",
-      "returns": "A dictionary containing only graph structure keys.",
-      "signature": "_copy_structure(g_)",
-      "source": "tf_gnns/lib/gt_ops.py:110",
-      "summary": "Copy only graph bookkeeping fields from a tensor dictionary.",
-      "topic": "quickstart"
-    },
-    {
-      "example": "",
-      "import": "from tf_gnns.lib.gt_ops import _slice_conc_tensordict",
-      "name": "_slice_conc_tensordict",
-      "returns": "A list of tensor dictionaries preserving graph structure and slicing node/edge/global feature tensors by the provided widths.",
-      "signature": "_slice_conc_tensordict(td_, node_slices, edge_slices, glob_slices)",
-      "source": "tf_gnns/lib/gt_ops.py:139",
-      "summary": "Split concatenated graph features into multiple tensor dictionaries.",
-      "topic": "quickstart"
-    },
-    {
-      "example": "",
-      "import": "from tf_gnns.lib.gt_ops import _zero_graph",
-      "name": "_zero_graph",
-      "returns": "A copied tensor dictionary with zero-valued feature tensors.",
-      "signature": "_zero_graph(g_, state_size=None)",
-      "source": "tf_gnns/lib/gt_ops.py:16",
-      "summary": "Create a zero-valued tensor dictionary with the same graph structure.",
-      "topic": "quickstart"
-    },
-    {
-      "example": "",
-      "import": "from tf_gnns.lib.gt_ops import _zero_graph_tf",
-      "name": "_zero_graph_tf",
-      "returns": "A copied tensor dictionary with zero-valued feature tensors.",
-      "signature": "_zero_graph_tf(g_, state_size=None)",
-      "source": "tf_gnns/lib/gt_ops.py:43",
-      "summary": "TensorFlow-traceable variant of `_zero_graph`.",
-      "topic": "quickstart"
-    },
-    {
       "example": "graphs",
       "import": "from tf_gnns.tfgnns_datastructures import Edge",
       "name": "Edge",
@@ -89,6 +9,16 @@
       "source": "tf_gnns/tfgnns_datastructures.py:65",
       "summary": "Directed edge connecting two :class:`Node` objects.",
       "topic": "graphs"
+    },
+    {
+      "example": "gcn",
+      "import": "from tf_gnns.models.gcn import GCNv2",
+      "name": "GCNv2",
+      "returns": "",
+      "signature": "GCNv2(hidden_units, output_units, num_layers=3, add_self_loops=True, normalize=True, residual=True, residual_projection=True, batchnorm=True, layernorm=False, input_dropout_rate=0.0, dropout_rate=0.0, jit_compile=False, feature_dtype=None, index_dtype=None, use_shortcut=True, use_bias=True, **kwargs)",
+      "source": "tf_gnns/models/gcn.py:387",
+      "summary": "High-level GCN stack matching tunedGNN's OGB-Arxiv recipe.",
+      "topic": "gcn"
     },
     {
       "example": "graphnets",
@@ -141,7 +71,7 @@
       "topic": "graphnets"
     },
     {
-      "example": "quickstart",
+      "example": "backends",
       "import": "from tf_gnns.models.graphnet import GraphNetMPNN_MLP",
       "name": "GraphNetMPNN_MLP",
       "returns": "",

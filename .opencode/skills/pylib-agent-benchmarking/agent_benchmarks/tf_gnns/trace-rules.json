@@ -28,5 +28,17 @@
     "regex": "batchnorm\\s*=\\s*True[\\s\\S]{0,200}layernorm\\s*=\\s*True|layernorm\\s*=\\s*True[\\s\\S]{0,200}batchnorm\\s*=\\s*True",
     "corpus": "solution",
     "remediation": "Emphasize in GCN docs that batchnorm and layernorm cannot both be enabled."
+  },
+  {
+    "label": "agent_docs --examples used before concepts",
+    "regex": "agent_docs\\s+get\\s+\\w+\\s+--examples",
+    "corpus": "assistant",
+    "remediation": "Agent read examples before concepts. The suite prompt and SKILL.md direct agents to read --concepts first; verify the concepts sections cover what the task needs."
+  },
+  {
+    "label": "trial probe script written to /tmp",
+    "regex": "cat\\s*>\\s*/tmp/",
+    "corpus": "assistant",
+    "remediation": "Agent needed a trial probe to learn shapes or behavior. Improve the topic-page shape table and parameter key facts so agents can derive answers without probing."
   }
 ]

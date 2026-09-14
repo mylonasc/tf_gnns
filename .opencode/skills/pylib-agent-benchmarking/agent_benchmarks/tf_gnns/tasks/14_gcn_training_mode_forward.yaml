@@ -17,9 +17,9 @@ prompt: |
   The script must:
   - Import `SparseGCNConv`, `SparseGCN`, and `GCNv2` from `tf_gnns.models.gcn`.
   - Build a 4-node tensor dictionary with `nodes`, `senders`, `receivers`, `n_nodes`, `n_edges`, `n_graphs` (no edge weights needed).
-  - Run `SparseGCNConv(units=5, activation=None)` on the dict with `training=True` and `training=False`; assert output node shape `(4,5)` both times and that all values are finite.
-  - Run `SparseGCN(hidden_units=[6,6], output_units=3, dropout_rate=0.3, residual=True, residual_projection=True)` with `training=True`; assert node shape `(4,3)` and all values finite.
-  - Run `GCNv2(hidden_units=8, output_units=4, num_layers=3, input_dropout_rate=0.2, dropout_rate=0.3, residual=True, residual_projection=True, batchnorm=True)` with `training=True`; assert node shape `(4,4)` and all values finite.
+  - Run `SparseGCNConv(units=4, activation=None)` on the dict with `training=True` and `training=False`; assert output node shape `(4,4)` both times and that all values are finite.
+  - Run `SparseGCN(hidden_units=[5,5], output_units=2, dropout_rate=0.3, residual=True, residual_projection=True)` with `training=True`; assert node shape `(4,2)` and all values finite.
+  - Run `GCNv2(hidden_units=6, output_units=3, num_layers=2, input_dropout_rate=0.2, dropout_rate=0.3, residual=True, residual_projection=True, batchnorm=True)` with `training=True`; assert node shape `(4,3)` and all values finite.
   - Print `gcn training mode forward benchmark passed` when all assertions succeed.
 
   Do not modify files outside `agent_benchmark_solutions/gcn_training_mode_forward.py`.

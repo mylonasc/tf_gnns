@@ -2,6 +2,64 @@
 
 Read this when building `Node`, `Edge`, `Graph`, and `GraphTuple` inputs.
 
+## How It Works
+
+Graph data in tf_gnns has two representations: **object graphs** (individual `Node`/`Edge`/`Graph` instances) and **tensor dictionaries** (flat dicts consumed by model layers). `GraphTuple` is the batched representation that bridges the two.
+
+The flow is: **object graphs → `make_graph_tuple_from_graph_list` → `GraphTuple` → `to_tensor_dict()` → model layers**. To unbatch, use `get_graph(i)`. Global features are added via `assign_global` and tracked per-node/edge via `update_reps_for_globals`.
+
+**Key shapes** (one graph, D-dim features):
+
+| Component | Object form | Tensor-dict key | Shape |
+|---|---|---|---|
+| Node features | `Node(tensor)` | `nodes` | [N, D_node] |
+| Edge features | `Edge(tensor, src, dst)` | `edges` | [E, D_edge] |
+| Connectivity | — | `senders`, `receivers` | [E] each |
+| Counts | — | `n_nodes`, `n_edges`, `n_graphs` | scalar (per graph) |
+| Global features | `Graph(..., global_attr=tensor)` | `global_attr` | [K, D_glob] |
+| Global reps | — | `global_reps_for_nodes` | [N] (graph index per node) |
+| Global reps | — | `global_reps_for_edges` | [E] (graph index per edge) |
+
+## Decision Guide
+
+- **Building a small graph for examples?** → Use `Node`, `Edge`, `Graph` object construction
+- **Batching multiple graphs for model input?** → `make_graph_tuple_from_graph_list` → `to_tensor_dict()`
+- **Adding global features to an existing batch?** → `gt.assign_global(tensor)` + `gt.update_reps_for_globals()`
+- **Unbatching to inspect a single graph?** → `gt.get_graph(i)` returns an object `Graph`
+- **Comparing graphs?** → `g.compare_connectivity(other)` (structural); field-wise via `to_tensor_dict()` + `tf.equal`
+
+## Parameter Key Facts
+
+| Parameter | Effect | Gotcha | Related |
+|---|---|---|---|
+| `Node(tensor)` | Creates a node with feature tensor | **Tensor must have rank ≥ 2.** Single features use `[[1.0, 0.0]]`, not `[1.0, 0.0]`. | `make_graph_tuple_from_graph_list` expects first dim 1 |
+| `Edge(tensor, src, dst)` | Creates a directed edge | Auto-appends to `dst.incoming_edges` | — |
+| `Graph(nodes, edges)` | Object graph | `NO_VALIDATION=True` skips validation | `global_attr` optional |
+| `make_graph_tuple_from_graph_list([g1, g2])` | Batches object graphs | Node/edge tensors must have first dim 1 (object graphs) | `assign_global` after batching |
+| `assign_global(tensor, check_shape=True)` | Adds global features | One row per graph; `check_shape=True` catches mistakes | `update_reps_for_globals` after assign |
+| `get_subgraph_from_nodes(nodes, mode)` | Extracts subgraph | `"+from+to"` keeps edges with both endpoints kept; `"-from+to"` may raise `KeyError` | Prefer `"+from+to"` |
+
+## Boundaries & Gotchas
+
+1. **`GraphTuple.is_equal_by_value` crashes on vector-valued fields.** It uses Python `all()` on bool tensors. Compare via `to_tensor_dict()` field-by-field: `tf.reduce_all(tf.equal(a.nodes, b.nodes))`.
+2. **`get_subgraph_from_nodes("-from+to")` raises `KeyError`.** When it must keep an edge (both endpoints excluded), it fails. Prefer `"+from+to"`.
+3. **`make_graph_tuple_from_graph_list` drops `global_attr`.** Object-graph globals are not carried into the `GraphTuple`. Use `assign_global` after batching.
+4. **Object node/edge tensors must have first dim 1.** The batcher expects `[1, feature_dim]` shapes for each object tensor.
+
+## Minimal Skeleton
+
+```python
+import tensorflow as tf
+from tf_gnns import Node, Edge, Graph, make_graph_tuple_from_graph_list
+
+n0 = Node(tf.constant([[1.0, 0.0]], dtype=tf.float32))
+n1 = Node(tf.constant([[0.0, 1.0]], dtype=tf.float32))
+e = Edge(tf.constant([[0.5]], dtype=tf.float32), n0, n1)
+gt = make_graph_tuple_from_graph_list([Graph([n0, n1], [e])])
+td = gt.to_tensor_dict()
+assert td["nodes"].shape[0] == 2
+```
+
 ## Rules
 
 - `Node(node_attr_tensor)` requires a tensor-like value with rank at least 2.
@@ -15,7 +73,28 @@ Read this when building `Node`, `Edge`, `Graph`, and `GraphTuple` inputs.
 - After batching `K` graphs with `make_graph_tuple_from_graph_list([...])`, `n_nodes` has `K` entries and `n_nodes.sum() == td["nodes"].size`, and the same holds for `n_edges` and `edges`.
 - `GraphTuple.is_equal_by_value` raises on any vector-valued field (use `to_tensor_dict()` field comparison); `get_subgraph_from_nodes` with `"-from+to"` raises `KeyError` when it must keep an edge (use `"+from+to"` instead).
 
-## Object Graph Example
+## API Signatures (authoritative, no need to read source)
+
+- `Node(node_attr_tensor)` — tensor-like with rank at least 2.
+- `Edge(edge_attr_tensor, node_from, node_to)` — auto-appends to `node_to.incoming_edges`.
+- `Graph(nodes, edges, global_attr=None, NO_VALIDATION=True)`.
+- `GraphTuple(nodes, edges, senders, receivers, n_nodes, n_edges, global_attr=None, global_reps_for_nodes=None, global_reps_for_edges=None, n_graphs=None)`.
+- `make_graph_tuple_from_graph_list(list_of_graphs)` batches object graphs into one `GraphTuple`; object node/edge tensors must have first dimension `1`.
+- `GraphTuple.to_tensor_dict()` -> dict with keys `nodes, edges, senders, receivers, n_nodes, n_edges, n_graphs, global_attr, global_reps_for_edges, global_reps_for_nodes`.
+- `GraphTuple.get_graph(i)` -> object `Graph`; `Graph.compare_connectivity(other)` -> bool.
+- `GraphTuple.assign_global(global_attr, check_shape=False)` — with `check_shape=True` it raises if rows != number of graphs.
+- `Graph.get_subgraph_from_nodes(nodes, edge_trimming_mode="+from+to")` — `"+from+to"` keeps edges with both endpoints kept; `"-from+to"` keeps edges with both endpoints excluded.
+- `Graph.copy()` / `Graph.is_equal_by_value(other)` / `Graph.compare_connectivity(other)`; `GraphTuple.copy()` / `GraphTuple.is_equal_by_value(other)`.
+- `GraphTuple.update_reps_for_globals()` rebuilds `_global_reps_for_nodes` / `_global_reps_for_edges` from `n_nodes` / `n_edges` (each node/edge indexed by its graph, in order).
+
+## Output Contract
+
+- `to_tensor_dict()` output is always the key set above; `n_nodes` has one entry per graph and `sum(n_nodes) == nodes` row count (same for edges).
+- `GraphTuple` objects also expose `.nodes/.edges/.senders/.receivers/.n_nodes/.n_edges` tensor attributes directly.
+
+## Example Gallery
+
+### Object Graph Example
 
 ```python
 import tensorflow as tf
@@ -30,7 +109,7 @@ copy = graph.copy()
 assert graph.compare_connectivity(copy)
 ```
 
-## GraphTuple Example
+### GraphTuple Example
 
 ```python
 import tensorflow as tf
@@ -60,7 +139,7 @@ manual = GraphTuple(
 assert manual.n_graphs == 1
 ```
 
-## Multi-Graph Batching And Subgraph Example
+### Multi-Graph Batching And Subgraph Example
 
 ```python
 import tensorflow as tf
@@ -86,7 +165,7 @@ assert g0.compare_connectivity(make_graph(1.0))
 two_nodes = g0.get_subgraph_from_nodes(list(g0.nodes[:1]), edge_trimming_mode="+from+to")
 ```
 
-## Copy, Equality, And Global Forwarding Vectors
+### Copy, Equality, And Global Forwarding Vectors
 
 ```python
 import tensorflow as tf
@@ -128,23 +207,3 @@ sub = g1.get_subgraph_from_nodes(g1.nodes[:1], edge_trimming_mode="-from+to")
 assert len(sub.edges) == 0  # the only edge touches a kept node
 assert isinstance(sub, Graph)
 ```
-> **Boundary:** `GraphTuple.is_equal_by_value(other)` compares fields with Python `all(...)` on tensors, so it raises `ValueError` whenever any compared field holds more than one element. Compare `GraphTuple`s by their `to_tensor_dict()` tensors instead. `Graph.is_equal_by_value` (single-node tensors) and `Graph.compare_connectivity` work. Also, `get_subgraph_from_nodes(..., edge_trimming_mode="-from+to")` raises `KeyError` the moment it has to keep an edge (both endpoints excluded) — the excluded-edge policy only works when no such edge exists, so prefer `"+from+to"`.
-
-## API Signatures (authoritative, no need to read source)
-
-- `Node(node_attr_tensor)` — tensor-like with rank at least 2.
-- `Edge(edge_attr_tensor, node_from, node_to)` — auto-appends to `node_to.incoming_edges`.
-- `Graph(nodes, edges, global_attr=None, NO_VALIDATION=True)`.
-- `GraphTuple(nodes, edges, senders, receivers, n_nodes, n_edges, global_attr=None, global_reps_for_nodes=None, global_reps_for_edges=None, n_graphs=None)`.
-- `make_graph_tuple_from_graph_list(list_of_graphs)` batches object graphs into one `GraphTuple`; object node/edge tensors must have first dimension `1`.
-- `GraphTuple.to_tensor_dict()` -> dict with keys `nodes, edges, senders, receivers, n_nodes, n_edges, n_graphs, global_attr, global_reps_for_edges, global_reps_for_nodes`.
-- `GraphTuple.get_graph(i)` -> object `Graph`; `Graph.compare_connectivity(other)` -> bool.
-- `GraphTuple.assign_global(global_attr, check_shape=False)` — with `check_shape=True` it raises if rows != number of graphs.
-- `Graph.get_subgraph_from_nodes(nodes, edge_trimming_mode="+from+to")` — `"+from+to"` keeps edges with both endpoints kept; `"-from+to"` keeps edges with both endpoints excluded.
-- `Graph.copy()` / `Graph.is_equal_by_value(other)` / `Graph.compare_connectivity(other)`; `GraphTuple.copy()` / `GraphTuple.is_equal_by_value(other)`.
-- `GraphTuple.update_reps_for_globals()` rebuilds `_global_reps_for_nodes` / `_global_reps_for_edges` from `n_nodes` / `n_edges` (each node/edge indexed by its graph, in order).
-
-## Output Contract
-
-- `to_tensor_dict()` output is always the key set above; `n_nodes` has one entry per graph and `sum(n_nodes) == nodes` row count (same for edges).
-- `GraphTuple` objects also expose `.nodes/.edges/.senders/.receivers/.n_nodes/.n_edges` tensor attributes directly.

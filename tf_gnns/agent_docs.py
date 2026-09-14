@@ -84,6 +84,22 @@ def _extract_rules(text: str) -> str:
     return "\n".join(lines).strip()
 
 
+def _extract_concepts(text: str) -> str:
+    """Extract concept sections (How It Works through Output Contract, before Example Gallery)."""
+    lines = text.splitlines()
+    start = None
+    end = None
+    for i, line in enumerate(lines):
+        if line.startswith("## How It Works"):
+            start = i
+        if start is not None and line.startswith("## Example Gallery"):
+            end = i
+            break
+    if start is None:
+        return text
+    return "\n".join(lines[start:end]).rstrip()
+
+
 def list_topics(_args: argparse.Namespace) -> int:
     for topic in TOPICS:
         print(f"{topic.name:10} {topic.title} - read when {topic.when}")
@@ -97,6 +113,8 @@ def get_topic(args: argparse.Namespace) -> int:
         text = _extract_examples(text)
     elif args.rules:
         text = _extract_rules(text)
+    elif args.concepts:
+        text = _extract_concepts(text)
     print(text.rstrip())
     return 0
 
@@ -177,6 +195,7 @@ def build_parser() -> argparse.ArgumentParser:
     mode = get_parser.add_mutually_exclusive_group()
     mode.add_argument("--examples", action="store_true")
     mode.add_argument("--rules", action="store_true")
+    mode.add_argument("--concepts", action="store_true")
     get_parser.set_defaults(func=get_topic)
 
     search_parser = subparsers.add_parser("search", help="Search topics and API cards")

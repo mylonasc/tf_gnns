@@ -14,14 +14,42 @@ PACKAGE = ROOT / "tf_gnns"
 OUT = PACKAGE / "agent_skill" / "api_index.json"
 
 
+def _references_files() -> list[Path]:
+    return sorted((PACKAGE / "agent_skill" / "references").glob("*.md"))
+
+
 def _public_names() -> list[str]:
+    names: set[str] = set()
+    # Root package __all__
     module = ast.parse((PACKAGE / "__init__.py").read_text(encoding="utf-8"))
     for node in module.body:
         if isinstance(node, ast.Assign):
             for target in node.targets:
                 if isinstance(target, ast.Name) and target.id == "__all__":
-                    return list(ast.literal_eval(node.value))
-    raise RuntimeError("tf_gnns.__all__ not found")
+                    names.update(ast.literal_eval(node.value))
+    # Submodule __all__ (e.g. tf_gnns.models exports GCNv2), but only keep
+    # names that are referenced in the reference docs so internal runtime
+    # helpers (e.g. maybe_patch_ld_library_path_for_tensorflow) do not leak in.
+    referenced_docs = "\n".join(p.read_text(encoding="utf-8") for p in _references_files())
+    for subinit in sorted(PACKAGE.rglob("__init__.py")):
+        if subinit == PACKAGE / "__init__.py":
+            continue
+        try:
+            submod = ast.parse(subinit.read_text(encoding="utf-8"))
+        except SyntaxError:
+            continue
+        for node in submod.body:
+            if isinstance(node, ast.Assign):
+                for target in node.targets:
+                    if isinstance(target, ast.Name) and target.id == "__all__":
+                        for name in ast.literal_eval(node.value):
+                            if name.startswith("_"):
+                                continue
+                            pattern = rf"(?<![A-Za-z0-9_]){re.escape(name)}(?![A-Za-z0-9_])"
+                            if re.search(pattern, referenced_docs):
+                                names.add(name)
+    # Filter out private names (underscore-prefixed)
+    return sorted(n for n in names if not n.startswith("_"))
 
 
 def _signature(name: str, node: ast.AST) -> str:

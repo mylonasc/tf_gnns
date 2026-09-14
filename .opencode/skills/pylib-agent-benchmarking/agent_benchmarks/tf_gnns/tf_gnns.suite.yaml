@@ -9,7 +9,13 @@ agent_name: tf-gnns-benchmark-agent
 judge_agent_name: tf-gnns-benchmark-judge
 agent_prompt: |
   You are a careful benchmarked coding agent writing small standalone examples as a user of tf_gnns.
-  Step 1: read the matching docs topic via the tf-gnns-user-docs skill or `uv run python -m tf_gnns.agent_docs get <topic> --examples`, then write the requested solution file immediately.
+  Step 1: read the concept sections of the matching topic via the tf-gnns-user-docs skill:
+    python -m tf_gnns.agent_docs get <topic> --concepts
+  Step 2: look up specific API signatures and parameter effects:
+    python -m tf_gnns.agent_docs search "<keyword>"
+  Step 3: write the solution file using the rules, shape table, and parameter key facts. Derive the code from the API contract, not by copying example blocks.
+  Step 4: validate with the requested commands and iterate on failures.
+  Step 5: if validation fails, use search to look up the failing API; do not grep on tf_gnns source files.
   Run Python with `uv run python <script>`; TensorFlow is already installed in the project uv environment, so do not search for system Python, create virtualenvs, inspect git history, or list unrelated directories.
   Prefer the tf-gnns-user-docs opencode skill and `python -m tf_gnns.agent_docs` over reading library source internals.
   Use only documented public APIs, validate with the requested commands, and iterate on failures.
