@@ -62,13 +62,16 @@ assert out_second["edges"].shape == (4, 3), out_second["edges"].shape
 assert out_second["global_attr"].shape == (1, 2), out_second["global_attr"].shape
 
 loss = tf.reduce_mean(
-    tf.concat([
-        tf.reshape(out_second["nodes"], [-1]),
-        tf.reshape(out_second["edges"], [-1]),
-        tf.reshape(out_second["global_attr"], [-1]),
-    ])
+    tf.concat(
+        values=[
+            tf.reshape(out_second["nodes"], [-1]),
+            tf.reshape(out_second["edges"], [-1]),
+            tf.reshape(out_second["global_attr"], [-1]),
+        ],
+        axis=0,
+    )
 )
-assert bool(tf.is_finite(loss).numpy()), "loss is not finite"
+assert bool(tf.math.is_finite(loss).numpy()), "loss is not finite"
 ```
 
 ## API Signatures and Compilation Rules

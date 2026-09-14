@@ -91,7 +91,7 @@
       "topic": "graphs"
     },
     {
-      "example": "",
+      "example": "graphnets",
       "import": "from tf_gnns.models.graphnet import GNCellMLP",
       "name": "GNCellMLP",
       "returns": "",
@@ -171,7 +171,7 @@
       "topic": "graphnets"
     },
     {
-      "example": "",
+      "example": "graphnets",
       "import": "from tf_gnns.graphnet_utils import make_full_graphnet_functions",
       "name": "make_full_graphnet_functions",
       "returns": "Dictionary of constructor arguments for :class:`GraphNet` configured with edge, node, and global update functions.",
@@ -191,7 +191,7 @@
       "topic": "graphnets"
     },
     {
-      "example": "",
+      "example": "graphnets",
       "import": "from tf_gnns.graphnet_utils import make_graph_indep_graphnet_functions",
       "name": "make_graph_indep_graphnet_functions",
       "returns": "Dictionary of constructor arguments for :class:`GraphNet` configured in graph-independent mode.",

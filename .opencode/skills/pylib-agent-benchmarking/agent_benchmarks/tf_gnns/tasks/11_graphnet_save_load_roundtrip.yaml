@@ -1,0 +1,29 @@
+id: graphnet-save-load-roundtrip
+name: GraphNet Save And Load Roundtrip
+description: Save a no-global graph-independent block, reload it, and verify numerical roundtrip and the global-function-not-saved boundary.
+timeout_seconds: 600
+tags:
+  - graphnet-utils
+  - serialization
+  - medium
+allowed_paths:
+  - agent_benchmark_solutions/graphnet_save_load_roundtrip.py
+setup_commands: []
+validation_commands:
+  - uv run python agent_benchmark_solutions/graphnet_save_load_roundtrip.py
+prompt: |
+  You are working as a user of tf_gnns. Create a standalone script at `agent_benchmark_solutions/graphnet_save_load_roundtrip.py` using only documented public APIs.
+
+  The script must:
+  - Import `GraphNet`, `make_graph_indep_graphnet_functions`, `make_full_graphnet_functions`, `numpy`, `tempfile`, and `tensorflow`.
+  - Build a **no-global, graph-independent** block via `make_graph_indep_graphnet_functions(units=24, node_or_core_input_size=3, node_or_core_output_size=6, edge_input_size=2, edge_output_size=6, create_global_function=False, use_global_input=False)`, instantiate `GraphNet(**fns)`, and evaluate on a small tensor dictionary (3 nodes, 3 edges, no `global_attr` key).
+  - Save the block to a temp directory with `net.save(path)` and reload via `GraphNet.make_from_path(path)`.
+  - Assert that the reloaded block's output is numerically close (`numpy.allclose`) to the original, and that `len(net.weights) == len(reloaded.weights)`.
+  - Also call `blank = GraphNet(node_function=None, edge_function=None); blank.load(path)` and assert `blank.node_function is not None`.
+  - **Boundary check**: build a block WITH `global_output_size=4` and `global_input_size=2`, save and reload via `make_from_path`, and assert that the reloaded block's global output width equals the *input* global width (2) rather than the original 4, because `global_function` is not serialized.
+  - Print `graphnet save load roundtrip benchmark passed` when all assertions succeed.
+
+  Do not modify files outside `agent_benchmark_solutions/graphnet_save_load_roundtrip.py`.
+judge_rubric: |
+  Score from 1 to 5. Award high scores for using make_graph_indep_graphnet_functions correctly, save/make_from_path/load, allclose numerical check, weight count equality, global-function-not-saved boundary assertion, and narrow edits.
+minimum_judge_score: 4

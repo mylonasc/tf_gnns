@@ -66,11 +66,42 @@ out2 = stack(td, training=False)
 assert out2["nodes"].shape == (4, 3)
 ```
 
+## Training Mode (Dropout And BatchNorm)
+
+Pass `training=True` to exercise dropout and batchnorm (as in a Keras `fit` loop); `training=False` is inference. Both return the same output shapes.
+
+```python
+import tensorflow as tf
+from tf_gnns.models.gcn import GCNv2, SparseGCN
+
+td = {
+    "nodes": tf.ones((4, 3), dtype=tf.float32),
+    "senders": tf.constant([0, 1, 2, 3], dtype=tf.int32),
+    "receivers": tf.constant([1, 2, 3, 0], dtype=tf.int32),
+    "n_nodes": tf.constant([4], dtype=tf.int32),
+    "n_edges": tf.constant([4], dtype=tf.int32),
+    "n_graphs": tf.constant(1, dtype=tf.int32),
+}
+stack = SparseGCN(hidden_units=[6, 6], output_units=3, dropout_rate=0.3,
+                  residual=True, residual_projection=True)
+train_out = stack(td, training=True)
+assert train_out["nodes"].shape == (4, 3)
+assert tf.reduce_all(tf.math.is_finite(train_out["nodes"])).numpy()
+
+model = GCNv2(hidden_units=8, output_units=4, num_layers=3,
+              input_dropout_rate=0.2, dropout_rate=0.3,
+              residual=True, residual_projection=True, batchnorm=True)
+out = model(td, training=True)
+assert out["nodes"].shape == (4, 4)
+assert tf.reduce_all(tf.math.is_finite(out["nodes"])).numpy()
+```
+
 ## API Signatures (authoritative, no need to read source)
 
 - `SparseGCNConv(units, activation=None, add_self_loops=True, normalize=True, batchnorm=True, layernorm=False, feature_dtype=None, index_dtype=None)` — call with `training=False when outside a Keras fit loop`.
 - `SparseGCN(hidden_units, output_units=None, activation="relu", dropout_rate=0.0, add_self_loops=True, normalize=True, batchnorm=True, layernorm=False, jit_compile=False, residual=False, residual_projection=False, feature_dtype=None, index_dtype=None, **kwargs)` — accepts `hidden_units` as an int (single layer) or a list of widths; `output_units` appends a final dense head.
 - `GCNv2(hidden_units, output_units, num_layers=3, add_self_loops=True, normalize=True, residual=True, residual_projection=True, batchnorm=True, layernorm=False, input_dropout_rate=0.0, dropout_rate=0.0, jit_compile=False, feature_dtype=None, index_dtype=None, use_shortcut=True, use_bias=True)`.
+- All GCN layers take a `training=True/False` argument on their `call`; dropout and batchnorm engage only when `training=True`.
 
 ## Output Contract
 

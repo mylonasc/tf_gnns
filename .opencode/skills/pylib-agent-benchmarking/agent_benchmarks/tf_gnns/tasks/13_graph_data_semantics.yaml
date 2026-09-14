@@ -1,0 +1,30 @@
+id: graph-data-semantics
+name: Graph Data Copy, Equality, And Global Repetition Vectors
+description: Verify graph copy/connectivity, tensor-dict roundtrip, global_reps correctness, and subgraph extraction.
+timeout_seconds: 600
+tags:
+  - data-structures
+  - graph-tuple
+  - medium
+allowed_paths:
+  - agent_benchmark_solutions/graph_data_semantics.py
+setup_commands: []
+validation_commands:
+  - uv run python agent_benchmark_solutions/graph_data_semantics.py
+prompt: |
+  You are working as a user of tf_gnns. Create a standalone script at `agent_benchmark_solutions/graph_data_semantics.py` using only documented public APIs.
+
+  The script must:
+  - Import `Node`, `Edge`, `Graph`, `make_graph_tuple_from_graph_list`, and `GraphTuple` from `tf_gnns`.
+  - Build two 3-node object graphs (one edge each, different feature values), batch them with `make_graph_tuple_from_graph_list`, call `assign_global` with 2 rows, and call `update_reps_for_globals`.
+  - Assert `global_reps_for_nodes == [0,0,0,1,1,1]` and `global_reps_for_edges == [0,1]`.
+  - Assert `Graph.copy()` on the first graph satisfies both `is_equal_by_value` and `compare_connectivity`.
+  - Compare `to_tensor_dict()` values of the original and a rebuilt `GraphTuple` using `tf.reduce_all(tf.equal(...))` field-by-field (do NOT use `GraphTuple.is_equal_by_value`, which raises for vector-valued fields).
+  - Extract `get_graph(0)` and assert it matches the first graph's connectivity.
+  - Extract a 2-node subgraph with `get_subgraph_from_nodes(nodes[:2], edge_trimming_mode="+from+to")` and assert the single edge is kept.
+  - Print `graph data semantics benchmark passed` when all assertions succeed.
+
+  Do not modify files outside `agent_benchmark_solutions/graph_data_semantics.py`.
+judge_rubric: |
+  Score from 1 to 5. Award high scores for correct graph copy/connectivity, update_reps_for_globals assertions, field-wise GraphTuple equality (not is_equal_by_value), get_graph connectivity, +from+to subgraph, and narrow edits.
+minimum_judge_score: 4

@@ -59,6 +59,7 @@ description: Use when writing code against tf_gnns graph data structures, GraphN
 - Do not use removed `safe` or `batched` `GraphNet.graph_eval` modes.
 - Do not expect Torch eager paths to outperform PyG; use them for Keras backend portability.
 - Do not enable both `batchnorm` and `layernorm` on GCN layers.
+- `GraphNet.save()` serializes node/edge/aggregation functions only: reloaded blocks lose global updates and cannot re-run message passing. Use a no-global graph-independent block for a faithful roundtrip.
 - Do not rely on package-root exports for every model; use submodule imports shown above.
 
 ## Minimal Runnable Pattern

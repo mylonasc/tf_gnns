@@ -11,6 +11,14 @@ Read this when using `GraphNet` factories, MPNN layers, globals, and aggregators
 - Composite aggregations multiply message widths: `mean_max` -> 2x, `mean_max_min` -> 3x, `mean_max_min_sum` -> 4x.
 - For global inputs, set `use_global_input=True` before setting `use_global_to_edge=True` or `use_global_to_node=True` (the reverse raises `ValueError`).
 - `GraphNet.eval_tensor_dict(td)` is the direct tensor-dict path; `GraphNet.graph_tuple_eval(graph_tuple)` evaluates a batched `GraphTuple` directly; both return the same shapes for the same topology.
+- `GraphNet.graph_eval(graph)` evaluates a single object `Graph` and returns a `Graph` with the same connectivity and updated features; `GraphNet.__call__` dispatches to it for object graphs.
+- **Object-graph dispatch cannot carry global state**: `make_graph_tuple_from_graph_list` drops `graph.global_attr`, so `graph_eval` on a full (global) block raises. Use `graph_eval` only with no-global MPNN blocks; drive global blocks through `eval_tensor_dict`/`graph_tuple_eval`.
+- **Pass `units` as an integer** (e.g. `units=8`), not a list: a list of units makes every MLP end at `units[-1]` and silently *ignores* the requested output sizes, producing blocks that fail when evaluated. Integer `units` generates hidden layers of that width and appends a final layer with the exact requested output size.
+- `make_full_graphnet_functions` builds a full edge+node+global block (global routed into edge and node inputs); `make_mpnn_graphnet_noglobal_functions` builds an MPNN block with no global input or output.
+- `GraphNet.save(path)` writes `node_function`, `edge_aggregation_function`, and `edge_function` as `.keras` files but **not** `global_function`. A reloaded block loses global updates, and message-passing blocks cannot be re-evaluated after load (segment-aggregator tuples are not serialized). For a faithful numerical roundtrip (outputs and weights identical), save/load a no-global graph-independent block: `make_graph_indep_graphnet_functions(..., create_global_function=False, use_global_input=False)`.
+- `recurrent=True` reuses one process block across all `core_steps`; `recurrent=False` builds one block per step. At equal `core_steps`, `recurrent=True` has strictly fewer trainable weights (check `layer.all_weights`).
+- `residual=True` adds each process block's output to its input; `residual=False` replaces the input. Both produce the same shapes.
+- `GNCellMLP(gn_mlp_units, core_size, ...)` is a single one-step GraphNet block layer: it builds a full block when the input dict has `global_attr`, otherwise an MPNN no-global block.
 
 ## Factory Example
 
@@ -147,6 +155,219 @@ out_gt = net.graph_tuple_eval(gt.copy())
 assert out_td["nodes"].shape == out_gt.nodes.shape
 ```
 
+## Direct Factory Uses And Object-Graph Dispatch
+
+```python
+import tensorflow as tf
+from tf_gnns import Edge, Graph, Node
+from tf_gnns.graphnet_utils import (
+    GraphNet,
+    make_full_graphnet_functions,
+    make_mpnn_graphnet_noglobal_functions,
+)
+
+td_glob = {
+    "nodes": tf.ones((3, 3), dtype=tf.float32),
+    "edges": tf.ones((3, 4), dtype=tf.float32),
+    "senders": tf.constant([0, 1, 2], dtype=tf.int32),
+    "receivers": tf.constant([1, 2, 0], dtype=tf.int32),
+    "n_nodes": tf.constant([3], dtype=tf.int32),
+    "n_edges": tf.constant([3], dtype=tf.int32),
+    "n_graphs": tf.constant(1, dtype=tf.int32),
+    "global_attr": tf.ones((1, 2), dtype=tf.float32),
+    "global_reps_for_nodes": tf.constant([0, 0, 0], dtype=tf.int32),
+    "global_reps_for_edges": tf.constant([0, 0, 0], dtype=tf.int32),
+}
+
+full = make_full_graphnet_functions(
+    units=8, node_or_core_input_size=3, node_or_core_output_size=6,
+    edge_input_size=4, edge_output_size=6,
+    global_input_size=2, global_output_size=4,
+)
+net = GraphNet(**full)
+out = net.eval_tensor_dict(td_glob.copy())
+assert out["nodes"].shape[-1] == 6
+assert out["edges"].shape[-1] == 6
+assert out["global_attr"].shape[-1] == 4
+
+td_ng = {k: v for k, v in td_glob.items() if "global" not in k}
+mpnn = make_mpnn_graphnet_noglobal_functions(
+    units=8, node_or_core_input_size=3, node_or_core_output_size=6,
+    edge_input_size=4, edge_output_size=6,
+)
+net_mpnn = GraphNet(**mpnn)
+out = net_mpnn.eval_tensor_dict(td_ng.copy())
+assert out["nodes"].shape[-1] == 6
+assert "global_attr" not in out
+
+n0 = Node(tf.ones((1, 3))); n1 = Node(tf.ones((1, 3)) * 2); n2 = Node(tf.ones((1, 3)) * 3)
+g = Graph(
+    [n0, n1, n2],
+    [Edge(tf.ones((1, 4)), n0, n1), Edge(tf.ones((1, 4)) * 2, n1, n2)],
+)
+
+# Object-graph dispatch works for no-global blocks only:
+out_g = net_mpnn.graph_eval(g)
+assert out_g.nodes[0].get_state().shape[-1] == 6
+assert len(out_g.edges) == 2
+```
+> **Boundary:** for a full block with globals, `graph_eval` raises (`make_graph_tuple_from_graph_list` drops `global_attr`) — always call such blocks via `eval_tensor_dict`.
+
+## Aggregation Modes And Message Widths
+
+Output widths always equal `node_output_size`/`edge_output_size`/`global_output_size` when `units` is an integer. What changes with the aggregation mode is the **message width** fed to the node update: `multiplier * edge_output_size` with `mean/sum/max/min` -> 1x, `mean_max` -> 2x, `mean_max_min` -> 3x, `mean_max_min_sum` -> 4x (visible as the `edge_state_agg` input of `node_function`).
+
+```python
+import tensorflow as tf
+from tf_gnns.graphnet_utils import GraphNet, make_mlp_graphnet_functions
+
+td = {
+    "nodes": tf.ones((3, 3), dtype=tf.float32),
+    "edges": tf.ones((3, 4), dtype=tf.float32),
+    "senders": tf.constant([0, 1, 2], dtype=tf.int32),
+    "receivers": tf.constant([1, 2, 0], dtype=tf.int32),
+    "n_nodes": tf.constant([3], dtype=tf.int32),
+    "n_edges": tf.constant([3], dtype=tf.int32),
+    "n_graphs": tf.constant(1, dtype=tf.int32),
+    "global_attr": tf.ones((1, 2), dtype=tf.float32),
+    "global_reps_for_nodes": tf.constant([0, 0, 0], dtype=tf.int32),
+    "global_reps_for_edges": tf.constant([0, 0, 0], dtype=tf.int32),
+}
+multipliers = {"mean": 1, "sum": 1, "max": 1, "min": 1,
+               "mean_max": 2, "mean_max_min": 3, "mean_max_min_sum": 4}
+for agg, mult in multipliers.items():
+    args = make_mlp_graphnet_functions(
+        units=8, node_input_size=3, node_output_size=6,
+        edge_input_size=4, edge_output_size=6,
+        global_input_size=2, global_output_size=6,
+        create_global_function=True, use_global_input=True,
+        use_global_to_edge=True, use_global_to_node=True,
+        aggregation_function=agg,
+    )
+    net = GraphNet(**args)
+    msg_width = next(inp.shape[-1] for inp in net.node_function.inputs
+                     if "edge_state_agg" in inp.name)
+    assert msg_width == mult * 6
+    out = net.eval_tensor_dict(td.copy())
+    assert out["nodes"].shape[-1] == 6
+    assert out["global_attr"].shape[-1] == 6
+
+# Per-path aggregation overrides for the global block:
+args = make_mlp_graphnet_functions(
+    units=8, node_input_size=3, node_output_size=6,
+    edge_input_size=4, edge_output_size=6,
+    global_input_size=2, global_output_size=6,
+    create_global_function=True, use_global_input=True,
+    use_global_to_edge=True, use_global_to_node=True,
+    aggregation_function="sum",
+    node_to_global_aggr_fn="max", edge_to_global_aggr_fn="min",
+)
+net2 = GraphNet(**args)
+out2 = net2.eval_tensor_dict(td.copy())
+assert out2["nodes"].shape[-1] == 6
+assert out2["global_attr"].shape[-1] == 6
+```
+
+## Serialization Roundtrip
+
+```python
+import os
+import tempfile
+import numpy as np
+import tensorflow as tf
+from tf_gnns.graphnet_utils import GraphNet, make_graph_indep_graphnet_functions
+
+td = {
+    "nodes": tf.ones((3, 3), dtype=tf.float32),
+    "edges": tf.ones((3, 4), dtype=tf.float32),
+    "senders": tf.constant([0, 1, 2], dtype=tf.int32),
+    "receivers": tf.constant([1, 2, 0], dtype=tf.int32),
+    "n_nodes": tf.constant([3], dtype=tf.int32),
+    "n_edges": tf.constant([3], dtype=tf.int32),
+    "n_graphs": tf.constant(1, dtype=tf.int32),
+}
+args = make_graph_indep_graphnet_functions(
+    units=8, node_or_core_input_size=3, node_or_core_output_size=6,
+    edge_input_size=4, edge_output_size=6,
+    create_global_function=False, use_global_input=False,
+)
+net = GraphNet(**args)
+expected = net.eval_tensor_dict(td.copy())
+
+path = tempfile.mkdtemp()
+net.save(path)
+restored = GraphNet.make_from_path(path)
+got = restored.eval_tensor_dict(td.copy())
+assert np.allclose(expected["nodes"], got["nodes"], atol=1e-6)
+assert len(net.weights) == len(restored.weights)
+
+blank = GraphNet(node_function=None, edge_function=None)
+blank.load(path)
+assert blank.node_function is not None
+
+# Boundary: global_function is not serialized; a reloaded block falls back to
+# the input global width instead of its configured global output width.
+args_w = make_graph_indep_graphnet_functions(
+    units=8, node_or_core_input_size=3, node_or_core_output_size=6,
+    edge_input_size=4, edge_output_size=6,
+    global_input_size=2, global_output_size=4,
+)
+net_w = GraphNet(**args_w)
+td_w = dict(td); td_w["global_attr"] = tf.ones((1, 2), dtype=tf.float32)
+td_w["global_reps_for_nodes"] = tf.constant([0, 0, 0], dtype=tf.int32)
+td_w["global_reps_for_edges"] = tf.constant([0, 0, 0], dtype=tf.int32)
+assert net_w.eval_tensor_dict(td_w.copy())["global_attr"].shape[-1] == 4
+path_w = tempfile.mkdtemp()
+net_w.save(path_w)
+restored_w = GraphNet.make_from_path(path_w)
+assert restored_w.eval_tensor_dict(td_w.copy())["global_attr"].shape[-1] == 2
+```
+
+## Recurrent, Residual, And GNCellMLP
+
+```python
+import tensorflow as tf
+from tf_gnns.models.graphnet import GNCellMLP, GraphNetMLP, GraphNetMPNN_MLP
+
+td_ng = {
+    "nodes": tf.ones((3, 3), dtype=tf.float32),
+    "edges": tf.ones((3, 4), dtype=tf.float32),
+    "senders": tf.constant([0, 1, 2], dtype=tf.int32),
+    "receivers": tf.constant([1, 2, 0], dtype=tf.int32),
+    "n_nodes": tf.constant([3], dtype=tf.int32),
+    "n_edges": tf.constant([3], dtype=tf.int32),
+    "n_graphs": tf.constant(1, dtype=tf.int32),
+}
+
+m_rec = GraphNetMPNN_MLP(units=8, core_steps=3, recurrent=True)
+m_non = GraphNetMPNN_MLP(units=8, core_steps=3, recurrent=False)
+# Call both first: `all_weights` is populated during build/lazily on first call.
+# Output node width defaults to the input width (3) unless `node_output_size` is set.
+m_rec(td_ng.copy())
+m_non(td_ng.copy())
+assert len(m_rec.all_weights) < len(m_non.all_weights)  # recurrent shares one core block
+assert m_rec(td_ng.copy())["nodes"].shape[-1] == 3
+assert m_non(td_ng.copy())["nodes"].shape[-1] == 3
+
+m_nores = GraphNetMPNN_MLP(units=8, core_steps=2, residual=False)
+assert m_nores(td_ng.copy())["nodes"].shape[-1] == 3
+
+td_g = dict(td_ng)
+td_g["global_attr"] = tf.ones((1, 2), dtype=tf.float32)
+td_g["global_reps_for_nodes"] = tf.constant([0, 0, 0], dtype=tf.int32)
+td_g["global_reps_for_edges"] = tf.constant([0, 0, 0], dtype=tf.int32)
+m_g = GraphNetMLP(units=8, core_steps=2, recurrent=True)
+assert m_g(td_g.copy())["nodes"].shape[-1] == 3
+
+# GNCellMLP is a single one-step block; integer `gn_mlp_units` honors the
+# requested sizes (a list would force the output to the last element instead).
+cell = GNCellMLP(gn_mlp_units=8, core_size=6)
+out = cell(td_g.copy())
+assert out["nodes"].shape[-1] == 6
+assert out["edges"].shape[-1] == 6
+assert out["global_attr"].shape[-1] == 6
+```
+
 ## API Signatures (authoritative, no need to read source)
 
 - `GraphNetMLP(units=32, core_units=None, core_size=None, gi_units=None, core_steps=1, edge_input_size=None, node_input_size=None, global_input_size=None, edge_output_size=None, node_output_size=None, global_output_size=None, recurrent=False, residual=True, aggregation_function="mean")`
@@ -157,6 +378,8 @@ assert out_td["nodes"].shape == out_gt.nodes.shape
 - `make_graph_indep_graphnet_functions(units, node_or_core_input_size, node_or_core_output_size=None, edge_input_size=None, edge_output_size=None, global_input_size=None, global_output_size=None, aggregation_function="mean", create_global_function=True, use_global_input=True, **kwargs)`
 - `make_mpnn_graphnet_noglobal_functions(units, node_or_core_input_size, node_or_core_output_size=None, edge_input_size=None, edge_output_size=None, aggregation_function="mean", **kwargs)`
 - `GraphNet.eval_tensor_dict(td)` and `GraphNet.graph_tuple_eval(graph_tuple)` are the two evaluation paths; both return the same shapes for the same topology.
+- `GraphNet.graph_eval(graph)` evaluates a single object `Graph` and returns a `Graph`; `GraphNet.save(path)`, `GraphNet.make_from_path(path)`, `GraphNet.load_graph_functions(path)`, and instance `GraphNet.load(path)` handle serialization.
+- `GNCellMLP(gn_mlp_units, core_size=None, node_output_size=None, edge_output_size=None, global_output_size=None, aggregation_function="mean")` — single one-step GraphNet block layer.
 
 ## Output Contract
 
@@ -164,4 +387,8 @@ assert out_td["nodes"].shape == out_gt.nodes.shape
 - The `global_attr` key is present in the output only when a global update function exists:
   - `GraphNetMLP`/`GraphNetMPNN_MLP` expose `global_attr` only when the input dict contains `global_attr` (and `global_output_size` is used when given).
   - `GraphIndep` produces no `global_attr` output key when there is no global path: pass a dict without `global_attr` (or build on `{"nodes", "edges"}` shapes first and keep `global_attr` as `None`).
-- Node/edge/global output widths follow `node_output_size`/`edge_output_size`/`global_output_size`; when unset they default to the input widths or `units_out`.
+- Node/edge/global output widths follow `node_output_size`/`edge_output_size`/`global_output_size`; when unset they default to the input widths or `units_out`. This holds only for **integer `units`**; a list of units forces every MLP output to `units[-1]` and ignores the requested sizes.
+- `layer.all_weights` is populated only after the layer is built (first call, or when `edge_input_size`/`node_input_size` are passed to the constructor) — call the layer before inspecting it.
+- Message width fed to the node update is `multiplier * edge_output_size` where `mean/sum/max/min` -> 1x, `mean_max` -> 2x, `mean_max_min` -> 3x, `mean_max_min_sum` -> 4x; observable as the `edge_state_agg` input channel count of `node_function`.
+- `graph_eval` works on object graphs only for no-global blocks (batching drops `global_attr`); global blocks must run via `eval_tensor_dict`/`graph_tuple_eval`.
+- A reloaded block (`make_from_path`/`load`) keeps only the serialized functions: global updates are dropped and message-passing evaluation is not supported; roundtrip-correct results require a no-global graph-independent block.
