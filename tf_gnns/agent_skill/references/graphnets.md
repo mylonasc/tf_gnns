@@ -117,6 +117,7 @@ assert out["nodes"].shape == (1, 4)
 - `layer.all_weights` is populated only after the layer is built (first call, or when `edge_input_size`/`node_input_size` are passed to the constructor) — call the layer before inspecting it.
 - Message width fed to the node update is `multiplier * edge_output_size` where `mean/sum/max/min` -> 1x, `mean_max` -> 2x, `mean_max_min` -> 3x, `mean_max_min_sum` -> 4x; observable as the `edge_state_agg` input channel count of `node_function`.
 - `graph_eval` works on object graphs only for no-global blocks (batching drops `global_attr`); global blocks must run via `eval_tensor_dict`/`graph_tuple_eval`.
+- `graph_eval` returns an object `Graph`; read its node features back with `Node.get_state()` and edge features with `Edge.edge_tensor`.
 - A reloaded block (`make_from_path`/`load`) keeps only the serialized functions: global updates are dropped and message-passing evaluation is not supported; roundtrip-correct results require a no-global graph-independent block.
 
 ## Example Gallery

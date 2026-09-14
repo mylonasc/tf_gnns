@@ -85,12 +85,14 @@ assert td["nodes"].shape[0] == 2
 - `GraphTuple.assign_global(global_attr, check_shape=False)` — with `check_shape=True` it raises if rows != number of graphs.
 - `Graph.get_subgraph_from_nodes(nodes, edge_trimming_mode="+from+to")` — `"+from+to"` keeps edges with both endpoints kept; `"-from+to"` keeps edges with both endpoints excluded.
 - `Graph.copy()` / `Graph.is_equal_by_value(other)` / `Graph.compare_connectivity(other)`; `GraphTuple.copy()` / `GraphTuple.is_equal_by_value(other)`.
+- `Node.get_state()` — the feature tensor of an object node; `Edge.edge_tensor` — the feature tensor of an object edge.
 - `GraphTuple.update_reps_for_globals()` rebuilds `_global_reps_for_nodes` / `_global_reps_for_edges` from `n_nodes` / `n_edges` (each node/edge indexed by its graph, in order).
 
 ## Output Contract
 
 - `to_tensor_dict()` output is always the key set above; `n_nodes` has one entry per graph and `sum(n_nodes) == nodes` row count (same for edges).
 - `GraphTuple` objects also expose `.nodes/.edges/.senders/.receivers/.n_nodes/.n_edges` tensor attributes directly.
+- Object-node features are read back with `Node.get_state()`; object-edge features with `Edge.edge_tensor` (these are the per-object read accessors for the object `Graph` form).
 
 ## Example Gallery
 
