@@ -30,10 +30,10 @@
     "remediation": "Emphasize in GCN docs that batchnorm and layernorm cannot both be enabled."
   },
   {
-    "label": "agent_docs --examples used before concepts",
-    "regex": "agent_docs\\s+get\\s+\\w+\\s+--examples",
+    "label": "agent executed agent_docs get --examples (copy-paste risk)",
+    "regex": "\"command\":\\s*\"[^\"]*agent_docs\\s+get\\s+\\w+\\s+--examples",
     "corpus": "assistant",
-    "remediation": "Agent read examples before concepts. The suite prompt and SKILL.md direct agents to read --concepts first; verify the concepts sections cover what the task needs."
+    "remediation": "Agent read examples instead of deriving from concepts. The suite prompt and SKILL.md direct agents to read --concepts and search first; verify the parameter-shifted tasks still force reasoning."
   },
   {
     "label": "trial probe script written to /tmp",
