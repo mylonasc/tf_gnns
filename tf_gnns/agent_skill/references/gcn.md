@@ -66,6 +66,19 @@ out2 = stack(td, training=False)
 assert out2["nodes"].shape == (4, 3)
 ```
 
+## API Signatures (authoritative, no need to read source)
+
+- `SparseGCNConv(units, activation=None, add_self_loops=True, normalize=True, batchnorm=True, layernorm=False, feature_dtype=None, index_dtype=None)` — call with `training=False when outside a Keras fit loop`.
+- `SparseGCN(hidden_units, output_units=None, activation="relu", dropout_rate=0.0, add_self_loops=True, normalize=True, batchnorm=True, layernorm=False, jit_compile=False, residual=False, residual_projection=False, feature_dtype=None, index_dtype=None, **kwargs)` — accepts `hidden_units` as an int (single layer) or a list of widths; `output_units` appends a final dense head.
+- `GCNv2(hidden_units, output_units, num_layers=3, add_self_loops=True, normalize=True, residual=True, residual_projection=True, batchnorm=True, layernorm=False, input_dropout_rate=0.0, dropout_rate=0.0, jit_compile=False, feature_dtype=None, index_dtype=None, use_shortcut=True, use_bias=True)`.
+
+## Output Contract
+
+- `SparseGCNConv` and `SparseGCN` return a tensor dictionary with updated `nodes` and all bookkeeping keys (`senders`, `receivers`, `n_nodes`, ...) unchanged; pass through `edge_weights` if present in the input.
+- Node widths: `SparseGCNConv(units)` -> `nodes` width `units`; `SparseGCN(hidden_units=[h, ...], output_units=o)` -> `nodes` width `o` when `output_units` is set.
+- `GCNv2` returns a tensor dictionary with `nodes` of width `output_units`.
+- Dictation of dtypes: `feature_dtype` controls node/weight dtypes, `index_dtype` controls `senders`/`receivers`/`n_nodes`; `edge_weights` follows `feature_dtype`.
+
 ## GCNv2 Example
 
 ```python

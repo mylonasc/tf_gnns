@@ -52,6 +52,8 @@ assert out["nodes"].shape[-1] == 2
 import tensorflow as tf
 from tf_gnns.models.graphnet import GraphIndep
 
+# No-global tensor dictionary: no "global_attr" key at all -> GraphIndep
+# selects the graph-independent, no-global path automatically.
 td = {
     "nodes": tf.ones((3, 4)),
     "edges": tf.ones((2, 5)),
@@ -60,15 +62,15 @@ td = {
     "n_nodes": tf.constant([3]),
     "n_edges": tf.constant([2]),
     "n_graphs": tf.constant(1),
-    "global_attr": None,
-    "global_reps_for_nodes": tf.constant([0, 0, 0]),
-    "global_reps_for_edges": tf.constant([0, 0]),
 }
-layer = GraphIndep(units_out=6, create_global_function=False)
+layer = GraphIndep(units_out=6)
 out = layer(td)
 assert out["nodes"].shape[-1] == 6
 assert out["edges"].shape[-1] == 6
+assert "global_attr" not in out  # no global output on the no-global path
 ```
+
+> **Boundary:** `GraphIndep(..., create_global_function=...)` is **not** accepted — `create_global_function` is an unrecognized kwarg and raises `ValueError`. The no-global mode is selected purely by the input shape: if the dict has no `global_attr` key (or the layer is built on `{"nodes": ..., "edges": ...}` first), no global output is produced.
 
 ## GraphNetMLP With Globals And Explicit Sizes
 
@@ -144,3 +146,22 @@ gt = GraphTuple(
 out_gt = net.graph_tuple_eval(gt.copy())
 assert out_td["nodes"].shape == out_gt.nodes.shape
 ```
+
+## API Signatures (authoritative, no need to read source)
+
+- `GraphNetMLP(units=32, core_units=None, core_size=None, gi_units=None, core_steps=1, edge_input_size=None, node_input_size=None, global_input_size=None, edge_output_size=None, node_output_size=None, global_output_size=None, recurrent=False, residual=True, aggregation_function="mean")`
+- `GraphNetMPNN_MLP(units=32, core_units=None, core_size=None, gi_units=None, core_steps=1, edge_input_size=None, node_input_size=None, edge_output_size=None, node_output_size=None, recurrent=False, residual=True, aggregation_function="mean")`
+- `GraphIndep(units_out, gn_mlp_units=[], node_output_size=None, edge_output_size=None, global_output_size=None, activation="relu", **kwargs)` — default output width is `units_out` for nodes, edges, and globals. No `create_global_function` kwarg; the no-global path is selected by the input shape (no `global_attr` key).
+- `make_mlp_graphnet_functions(units, node_input_size, node_output_size, edge_input_size=None, edge_output_size=None, create_global_function=False, global_input_size=None, global_output_size=None, use_global_input=False, use_global_to_edge=False, use_global_to_node=False, node_mlp_use_edge_state_agg_input=True, graph_indep=False, message_size="auto", aggregation_function="mean", node_to_global_aggr_fn=None, edge_to_global_aggr_fn=None, activation="relu", activate_last_layer=False, **kwargs)`
+- `make_full_graphnet_functions(units, node_or_core_input_size, node_or_core_output_size=None, edge_input_size=None, edge_output_size=None, global_input_size=None, global_output_size=None, aggregation_function="mean", **kwargs)`
+- `make_graph_indep_graphnet_functions(units, node_or_core_input_size, node_or_core_output_size=None, edge_input_size=None, edge_output_size=None, global_input_size=None, global_output_size=None, aggregation_function="mean", create_global_function=True, use_global_input=True, **kwargs)`
+- `make_mpnn_graphnet_noglobal_functions(units, node_or_core_input_size, node_or_core_output_size=None, edge_input_size=None, edge_output_size=None, aggregation_function="mean", **kwargs)`
+- `GraphNet.eval_tensor_dict(td)` and `GraphNet.graph_tuple_eval(graph_tuple)` are the two evaluation paths; both return the same shapes for the same topology.
+
+## Output Contract
+
+- Layer subclasses (`GraphNetMLP`, `GraphNetMPNN_MLP`, `GraphIndep`) and `eval_tensor_dict`/`graph_tuple_eval` return a dictionary that preserves the input structure keys and replaces feature tensors.
+- The `global_attr` key is present in the output only when a global update function exists:
+  - `GraphNetMLP`/`GraphNetMPNN_MLP` expose `global_attr` only when the input dict contains `global_attr` (and `global_output_size` is used when given).
+  - `GraphIndep` produces no `global_attr` output key when there is no global path: pass a dict without `global_attr` (or build on `{"nodes", "edges"}` shapes first and keep `global_attr` as `None`).
+- Node/edge/global output widths follow `node_output_size`/`edge_output_size`/`global_output_size`; when unset they default to the input widths or `units_out`.

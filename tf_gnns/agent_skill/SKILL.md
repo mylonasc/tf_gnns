@@ -26,6 +26,8 @@ description: Use when writing code against tf_gnns graph data structures, GraphN
 - Read the reference page matching the task (`get <topic>` and `get <topic> --examples`) before writing code.
 - Prefer `python -m tf_gnns.agent_docs` over reading library source. The docs cover every public task this suite tests.
 - Use `search` for signatures and API cards before guessing argument names.
+- Every reference page has an `## API Signatures (authoritative)` section listing exact constructors, kwargs, and defaults. Never use Python `inspect` or read `tf_gnns` source to learn a signature — the docs page already lists it.
+- Each reference page also documents an **Output Contract** (which keys and shapes are produced); trust it instead of probing with trial scripts.
 - Write the solution file first, then validate and iterate; keep edits inside the allowed file.
 
 ## Environment

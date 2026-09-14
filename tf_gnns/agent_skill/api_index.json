@@ -131,7 +131,7 @@
       "topic": "graphnets"
     },
     {
-      "example": "graphnets",
+      "example": "backends",
       "import": "from tf_gnns.models.graphnet import GraphNetMLP",
       "name": "GraphNetMLP",
       "returns": "",
@@ -141,7 +141,7 @@
       "topic": "graphnets"
     },
     {
-      "example": "backends",
+      "example": "quickstart",
       "import": "from tf_gnns.models.graphnet import GraphNetMPNN_MLP",
       "name": "GraphNetMPNN_MLP",
       "returns": "",

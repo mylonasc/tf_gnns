@@ -84,3 +84,20 @@ assert g0.compare_connectivity(make_graph(1.0))
 
 two_nodes = g0.get_subgraph_from_nodes(list(g0.nodes[:1]), edge_trimming_mode="+from+to")
 ```
+
+## API Signatures (authoritative, no need to read source)
+
+- `Node(node_attr_tensor)` — tensor-like with rank at least 2.
+- `Edge(edge_attr_tensor, node_from, node_to)` — auto-appends to `node_to.incoming_edges`.
+- `Graph(nodes, edges, global_attr=None, NO_VALIDATION=True)`.
+- `GraphTuple(nodes, edges, senders, receivers, n_nodes, n_edges, global_attr=None, global_reps_for_nodes=None, global_reps_for_edges=None, n_graphs=None)`.
+- `make_graph_tuple_from_graph_list(list_of_graphs)` batches object graphs into one `GraphTuple`; object node/edge tensors must have first dimension `1`.
+- `GraphTuple.to_tensor_dict()` -> dict with keys `nodes, edges, senders, receivers, n_nodes, n_edges, n_graphs, global_attr, global_reps_for_edges, global_reps_for_nodes`.
+- `GraphTuple.get_graph(i)` -> object `Graph`; `Graph.compare_connectivity(other)` -> bool.
+- `GraphTuple.assign_global(global_attr, check_shape=False)` — with `check_shape=True` it raises if rows != number of graphs.
+- `Graph.get_subgraph_from_nodes(nodes, edge_trimming_mode="+from+to")` — `"+from+to"` keeps edges with both endpoints kept; `"-from+to"` keeps edges with both endpoints excluded.
+
+## Output Contract
+
+- `to_tensor_dict()` output is always the key set above; `n_nodes` has one entry per graph and `sum(n_nodes) == nodes` row count (same for edges).
+- `GraphTuple` objects also expose `.nodes/.edges/.senders/.receivers/.n_nodes/.n_edges` tensor attributes directly.
