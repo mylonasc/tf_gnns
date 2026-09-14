@@ -4,8 +4,8 @@ build-backend = "hatchling.build"
 
 [project]
 name = "tf_gnns"
-version = "0.3.0"
-description = "A hackable TensorFlow GraphNets library"
+version = "0.3.1"
+description = "A hackable Cross-backed (Keras3) GraphNets library"
 readme = "README.md"
 license = { text = "Apache-2.0" }
 requires-python = ">=3.9,<3.14"
