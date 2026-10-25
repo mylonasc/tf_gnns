@@ -253,6 +253,10 @@ class GraphNetMLP(keras.layers.Layer):
                 g_next = dict(g_)
                 g_next["nodes"] = g_["nodes"] + go_["nodes"]
                 g_next["edges"] = g_["edges"] + go_["edges"]
+                if g_.get("global_attr") is not None and go_.get("global_attr") is not None:
+                    g_next["global_attr"] = g_["global_attr"] + go_["global_attr"]
+                elif go_.get("global_attr") is not None:
+                    g_next["global_attr"] = go_["global_attr"]
                 g_ = g_next
             else:
                 g_ = go_
@@ -447,10 +451,10 @@ class GraphNetMPNN_MLP(keras.layers.Layer):
         }
         for c_ in range(self.core_steps):
             if (c_ == 0) or ((not self._is_recurrent) and c_ > 0):
-                g = make_mlp_graphnet_functions(self.core_units, **core_params)
+                g = GraphNet(**make_mlp_graphnet_functions(self.core_units, **core_params))
 
             g_core_determ_list.append(
-                GraphNet(**g)
+                g
             )  # if it is recurrent, it's multiple times the same network.
 
         self.g_dec_determ = GraphNet(
